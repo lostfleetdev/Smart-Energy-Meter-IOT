@@ -1,0 +1,93 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#0061a4', 'primaryTextColor': '#fff', 'primaryBorderColor': '#004d82', 'lineColor': '#43474e', 'secondaryColor': '#d1e4ff', 'tertiaryColor': '#f5f5f5'}}}%%
+
+flowchart TB
+    subgraph Device["🔌 ESP32 Device"]
+        direction TB
+        subgraph Sensors["Sensors"]
+            ZMPT["ZMPT101B<br>Voltage Sensor<br>0-250V AC"]
+            ACS["ACS712-20A<br>Current Sensor<br>0-20A"]
+        end
+        
+        subgraph Processing["Processing"]
+            ADC["12-bit ADC<br>GPIO34, GPIO35"]
+            RMS["RMS Calculation<br>200 samples"]
+            POWER["Power Calc<br>P = V × I"]
+        end
+        
+        subgraph IO["I/O"]
+            OLED["SSD1306<br>128×64 OLED"]
+            RELAY["5V Relay<br>10A/250VAC"]
+            TOUCH["TTP223<br>Touch Sensor"]
+        end
+        
+        subgraph Comms["Communication"]
+            WIFI["WiFi<br>802.11 b/g/n"]
+            MQTT_C["MQTT Client<br>QoS 1"]
+        end
+        
+        ZMPT --> ADC
+        ACS --> ADC
+        ADC --> RMS
+        RMS --> POWER
+        POWER --> OLED
+        POWER --> MQTT_C
+        TOUCH --> RELAY
+        MQTT_C --> WIFI
+    end
+    
+    subgraph Cloud["☁️ Cloud Backend"]
+        direction TB
+        subgraph Broker["Message Broker"]
+            NANOMQ["NanoMQ<br>Port 1883"]
+        end
+        
+        subgraph Server["Application Server"]
+            FLASK["Flask API<br>Port 5000"]
+            SSE["SSE Stream<br>/stream"]
+            REST["REST API<br>/history, /relay"]
+        end
+        
+        subgraph ML["ML Service"]
+            LGBM["LightGBM<br>Power Predictor"]
+            ISO["Isolation Forest<br>Anomaly Detector"]
+            CLF["LightGBM<br>On/Off Classifier"]
+        end
+        
+        subgraph Storage["Storage"]
+            CSV["data.csv<br>Telemetry Log"]
+            MODELS["*.pkl<br>Trained Models"]
+        end
+        
+        NANOMQ --> FLASK
+        FLASK --> SSE
+        FLASK --> REST
+        FLASK --> LGBM
+        FLASK --> ISO
+        FLASK --> CLF
+        FLASK --> CSV
+        LGBM --> MODELS
+        ISO --> MODELS
+        CLF --> MODELS
+    end
+    
+    subgraph Client["🖥️ Web Dashboard"]
+        direction TB
+        UI["Material Design 2<br>Dashboard"]
+        CHARTS["Chart.js<br>Power Charts"]
+        CONTROLS["Relay Control<br>Toggle Button"]
+        ALERTS["Anomaly Alerts<br>Toast Notifications"]
+        
+        UI --> CHARTS
+        UI --> CONTROLS
+        UI --> ALERTS
+    end
+    
+    WIFI -->|"MQTT<br>Telemetry"| NANOMQ
+    NANOMQ -->|"Relay Cmd"| WIFI
+    SSE -->|"Live Data"| UI
+    REST -->|"History/ML"| UI
+    CONTROLS -->|"POST /relay"| REST
+
+    style Device fill:#d1e4ff,stroke:#0061a4
+    style Cloud fill:#e8f5e9,stroke:#2e7d32
+    style Client fill:#fff3e0,stroke:#f57c00

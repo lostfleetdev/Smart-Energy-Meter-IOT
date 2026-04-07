@@ -1,0 +1,80 @@
+stateDiagram-v2
+    [*] --> Startup
+    
+    state Startup {
+        [*] --> InitHardware
+        InitHardware --> ShowSplash: I2C, ADC, GPIO OK
+        ShowSplash --> LoadCalibration
+        LoadCalibration --> ZeroSensors: calibration.json found
+        LoadCalibration --> ErrorHalt: No calibration file
+        ZeroSensors --> MainLoop
+    }
+    
+    state MainLoop {
+        [*] --> WaitTick
+        
+        WaitTick --> HandleTouch: 20ms elapsed
+        
+        state HandleTouch {
+            [*] --> CheckButton
+            CheckButton --> Recording: Button pressed
+            CheckButton --> Released: Button released
+            Recording --> Recording: Still pressed
+            Released --> ShortTap: duration < 600ms
+            Released --> LongPress: duration >= 600ms
+            ShortTap --> [*]: Toggle relay
+            LongPress --> [*]: Next screen
+        }
+        
+        HandleTouch --> CheckRelay
+        
+        state CheckRelay {
+            [*] --> CompareState
+            CompareState --> ReZero: ON → OFF transition
+            CompareState --> NoAction: No change
+            ReZero --> [*]: Update ACS_LIVE_MID
+            NoAction --> [*]
+        }
+        
+        CheckRelay --> ReadSensors: 1 second elapsed
+        CheckRelay --> WaitTick: < 1 second
+        
+        state ReadSensors {
+            [*] --> SampleVoltage
+            SampleVoltage --> SampleCurrent: 200 samples
+            SampleCurrent --> CalculateRMS: 200 samples
+            CalculateRMS --> CalculatePower
+            CalculatePower --> AccumulateEnergy
+            AccumulateEnergy --> [*]
+        }
+        
+        ReadSensors --> UpdateDisplay
+        
+        state UpdateDisplay {
+            [*] --> SelectScreen
+            SelectScreen --> Screen0: current_screen == 0
+            SelectScreen --> Screen1: current_screen == 1
+            SelectScreen --> Screen2: current_screen == 2
+            SelectScreen --> Screen3: current_screen == 3
+            Screen0 --> RenderOLED: LIVE (V, I, W)
+            Screen1 --> RenderOLED: ENERGY (kWh, Relay)
+            Screen2 --> RenderOLED: CONTROL (Instructions)
+            Screen3 --> RenderOLED: DEBUG (Raw values)
+            RenderOLED --> [*]
+        }
+        
+        UpdateDisplay --> WaitTick
+    }
+    
+    state ErrorState {
+        [*] --> IncrementCount
+        IncrementCount --> Sleep500ms
+        Sleep500ms --> ReinitHardware
+        ReinitHardware --> RetryMain: Success
+        ReinitHardware --> ErrorState: Still failing
+    }
+    
+    MainLoop --> ErrorState: OSError / Exception
+    ErrorState --> MainLoop: Recovered
+    
+    ErrorHalt --> [*]: Cannot proceed without calibration

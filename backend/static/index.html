@@ -1,0 +1,1617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Energy Monitor</title>
+    
+    <!-- Material Design 2 -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    
+    <style>
+        :root {
+            --md-sys-color-primary: #0061a4;
+            --md-sys-color-on-primary: #ffffff;
+            --md-sys-color-primary-container: #d1e4ff;
+            --md-sys-color-on-primary-container: #001d36;
+            --md-sys-color-secondary: #535f70;
+            --md-sys-color-on-secondary: #ffffff;
+            --md-sys-color-secondary-container: #d7e3f7;
+            --md-sys-color-surface: #fdfcff;
+            --md-sys-color-surface-variant: #dfe2eb;
+            --md-sys-color-on-surface: #1a1c1e;
+            --md-sys-color-on-surface-variant: #43474e;
+            --md-sys-color-outline: #73777f;
+            --md-sys-color-outline-variant: #c3c7cf;
+            --md-sys-color-error: #ba1a1a;
+            --md-sys-color-error-container: #ffdad6;
+            --md-sys-color-success: #006d3b;
+            --md-sys-color-success-container: #9cf6b4;
+            --md-sys-color-warning: #7d5800;
+            --md-sys-color-warning-container: #ffdea6;
+            
+            --md-elevation-1: 0 1px 3px 1px rgba(0,0,0,0.15), 0 1px 2px rgba(0,0,0,0.3);
+            --md-elevation-2: 0 2px 6px 2px rgba(0,0,0,0.15), 0 1px 2px rgba(0,0,0,0.3);
+            --md-elevation-3: 0 4px 8px 3px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.3);
+            
+            --md-radius-sm: 8px;
+            --md-radius-md: 12px;
+            --md-radius-lg: 16px;
+            --md-radius-xl: 28px;
+        }
+        
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            font-family: 'Roboto', sans-serif;
+            background: #f5f5f5;
+            color: var(--md-sys-color-on-surface);
+            min-height: 100vh;
+            line-height: 1.5;
+        }
+        
+        /* ══════════════════════════════════════════════════════════════
+           TOP APP BAR - Material Design 3 Style
+           ══════════════════════════════════════════════════════════════ */
+        .top-app-bar {
+            background: var(--md-sys-color-surface);
+            padding: 8px 16px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 1px solid var(--md-sys-color-outline-variant);
+        }
+        
+        .top-app-bar__leading {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .top-app-bar__icon {
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--md-sys-color-primary-container);
+            border-radius: 50%;
+            color: var(--md-sys-color-on-primary-container);
+        }
+        
+        .top-app-bar__title {
+            font-size: 22px;
+            font-weight: 400;
+            color: var(--md-sys-color-on-surface);
+        }
+        
+        .top-app-bar__spacer { flex: 1; }
+        
+        .top-app-bar__actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        /* Device Selector */
+        .device-selector {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: var(--md-sys-color-surface-variant);
+            border-radius: var(--md-radius-xl);
+            border: none;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 14px;
+            color: var(--md-sys-color-on-surface);
+            transition: background 0.2s;
+        }
+        
+        .device-selector:hover {
+            background: var(--md-sys-color-outline-variant);
+        }
+        
+        .device-selector select {
+            border: none;
+            background: transparent;
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 500;
+            color: inherit;
+            cursor: pointer;
+            outline: none;
+            padding-right: 8px;
+        }
+        
+        /* Connection Status */
+        .status-chip {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 16px;
+            border-radius: var(--md-radius-xl);
+            font-size: 12px;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+        }
+        
+        .status-chip.offline {
+            background: var(--md-sys-color-error-container);
+            color: var(--md-sys-color-error);
+        }
+        
+        .status-chip.online {
+            background: var(--md-sys-color-success-container);
+            color: var(--md-sys-color-success);
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        /* ══════════════════════════════════════════════════════════════
+           MAIN LAYOUT
+           ══════════════════════════════════════════════════════════════ */
+        .main-container {
+            max-width: 1440px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+        
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 24px;
+        }
+        
+        /* ══════════════════════════════════════════════════════════════
+           CARDS - Material Design 3 Elevated Cards
+           ══════════════════════════════════════════════════════════════ */
+        .card {
+            background: var(--md-sys-color-surface);
+            border-radius: var(--md-radius-md);
+            box-shadow: var(--md-elevation-1);
+            overflow: hidden;
+        }
+        
+        .card--elevated {
+            box-shadow: var(--md-elevation-2);
+        }
+        
+        .card__header {
+            padding: 20px 24px 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .card__headline {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .card__headline-icon {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--md-sys-color-primary-container);
+            border-radius: var(--md-radius-md);
+            color: var(--md-sys-color-on-primary-container);
+        }
+        
+        .card__headline-text h3 {
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--md-sys-color-on-surface);
+        }
+        
+        .card__headline-text span {
+            font-size: 12px;
+            color: var(--md-sys-color-on-surface-variant);
+        }
+        
+        .card__content {
+            padding: 12px 24px 24px;
+        }
+        
+        /* ══════════════════════════════════════════════════════════════
+           METRICS DISPLAY - Large Prominent Numbers
+           ══════════════════════════════════════════════════════════════ */
+        .metrics-row {
+            grid-column: span 12;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+        }
+        
+        .metric-card {
+            background: var(--md-sys-color-surface);
+            border-radius: var(--md-radius-lg);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            border: 1px solid var(--md-sys-color-outline-variant);
+            transition: all 0.2s ease;
+        }
+        
+        .metric-card:hover {
+            box-shadow: var(--md-elevation-2);
+            border-color: var(--md-sys-color-primary);
+        }
+        
+        .metric-card__header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .metric-card__label {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--md-sys-color-on-surface-variant);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .metric-card__icon {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            font-size: 18px;
+        }
+        
+        .metric-card__value {
+            font-size: 48px;
+            font-weight: 300;
+            line-height: 1;
+            color: var(--md-sys-color-on-surface);
+        }
+        
+        .metric-card__unit {
+            font-size: 20px;
+            font-weight: 400;
+            color: var(--md-sys-color-on-surface-variant);
+            margin-left: 4px;
+        }
+        
+        .metric-card__trend {
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .metric-card--primary .metric-card__icon {
+            background: var(--md-sys-color-primary-container);
+            color: var(--md-sys-color-on-primary-container);
+        }
+        
+        .metric-card--warning .metric-card__icon {
+            background: var(--md-sys-color-warning-container);
+            color: var(--md-sys-color-warning);
+        }
+        
+        .metric-card--success .metric-card__icon {
+            background: var(--md-sys-color-success-container);
+            color: var(--md-sys-color-success);
+        }
+        
+        .metric-card--error .metric-card__icon {
+            background: var(--md-sys-color-error-container);
+            color: var(--md-sys-color-error);
+        }
+        
+        .metric-card--error {
+            border-color: var(--md-sys-color-error);
+            background: var(--md-sys-color-error-container);
+        }
+        
+        .metric-card--error .metric-card__value {
+            color: var(--md-sys-color-error);
+        }
+        
+        /* ══════════════════════════════════════════════════════════════
+           CHART CONTAINERS
+           ══════════════════════════════════════════════════════════════ */
+        .chart-area {
+            position: relative;
+            height: 280px;
+            width: 100%;
+        }
+        
+        .chart-area--small {
+            height: 200px;
+        }
+        
+        .chart-area--large {
+            height: 350px;
+        }
+        
+        /* Chart Card Spans */
+        .card--power-chart { grid-column: span 8; }
+        .card--ml-forecast { grid-column: span 4; }
+        .card--anomaly { grid-column: span 6; }
+        .card--history { grid-column: span 6; }
+        .card--controls { grid-column: span 12; }
+        
+        /* ══════════════════════════════════════════════════════════════
+           ML PREDICTION PANEL
+           ══════════════════════════════════════════════════════════════ */
+        .prediction-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        
+        .prediction-item {
+            padding: 16px;
+            background: var(--md-sys-color-surface-variant);
+            border-radius: var(--md-radius-md);
+        }
+        
+        .prediction-item__header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .prediction-item__label {
+            font-size: 12px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--md-sys-color-on-surface-variant);
+        }
+        
+        .prediction-item__badge {
+            padding: 4px 12px;
+            border-radius: var(--md-radius-xl);
+            font-size: 11px;
+            font-weight: 500;
+        }
+        
+        .badge--success {
+            background: var(--md-sys-color-success-container);
+            color: var(--md-sys-color-success);
+        }
+        
+        .badge--warning {
+            background: var(--md-sys-color-warning-container);
+            color: var(--md-sys-color-warning);
+        }
+        
+        .badge--error {
+            background: var(--md-sys-color-error-container);
+            color: var(--md-sys-color-error);
+        }
+        
+        .prediction-item__value {
+            font-size: 32px;
+            font-weight: 300;
+            color: var(--md-sys-color-on-surface);
+        }
+        
+        .prediction-item__value small {
+            font-size: 14px;
+            color: var(--md-sys-color-on-surface-variant);
+        }
+        
+        .prediction-item__meta {
+            font-size: 12px;
+            color: var(--md-sys-color-on-surface-variant);
+            margin-top: 4px;
+        }
+        
+        /* ══════════════════════════════════════════════════════════════
+           BUTTONS - Material Design 3
+           ══════════════════════════════════════════════════════════════ */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px 24px;
+            border-radius: var(--md-radius-xl);
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 500;
+            letter-spacing: 0.1px;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+        }
+        
+        .btn .material-icons-outlined { font-size: 18px; }
+        
+        .btn--filled {
+            background: var(--md-sys-color-primary);
+            color: var(--md-sys-color-on-primary);
+        }
+        
+        .btn--filled:hover {
+            box-shadow: var(--md-elevation-1);
+        }
+        
+        .btn--filled-tonal {
+            background: var(--md-sys-color-secondary-container);
+            color: var(--md-sys-color-on-secondary-container);
+        }
+        
+        .btn--outlined {
+            background: transparent;
+            border: 1px solid var(--md-sys-color-outline);
+            color: var(--md-sys-color-primary);
+        }
+        
+        .btn--outlined:hover {
+            background: rgba(0, 97, 164, 0.08);
+        }
+        
+        .btn--icon {
+            width: 40px;
+            height: 40px;
+            padding: 0;
+            border-radius: 50%;
+            background: transparent;
+            color: var(--md-sys-color-on-surface-variant);
+        }
+        
+        .btn--icon:hover {
+            background: var(--md-sys-color-surface-variant);
+        }
+        
+        .btn--success {
+            background: var(--md-sys-color-success);
+            color: white;
+        }
+        
+        .btn--error {
+            background: var(--md-sys-color-error);
+            color: white;
+        }
+        
+        /* ══════════════════════════════════════════════════════════════
+           SWITCH / TOGGLE - Material Design 3
+           ══════════════════════════════════════════════════════════════ */
+        .switch {
+            position: relative;
+            display: inline-flex;
+            width: 52px;
+            height: 32px;
+        }
+        
+        .switch input { opacity: 0; width: 0; height: 0; }
+        
+        .switch__track {
+            position: absolute;
+            inset: 0;
+            background: var(--md-sys-color-surface-variant);
+            border: 2px solid var(--md-sys-color-outline);
+            border-radius: 16px;
+            transition: all 0.2s;
+        }
+        
+        .switch__thumb {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            left: 8px;
+            top: 8px;
+            background: var(--md-sys-color-outline);
+            border-radius: 50%;
+            transition: all 0.2s;
+        }
+        
+        .switch input:checked + .switch__track {
+            background: var(--md-sys-color-primary);
+            border-color: var(--md-sys-color-primary);
+        }
+        
+        .switch input:checked ~ .switch__thumb {
+            transform: translateX(20px);
+            background: var(--md-sys-color-on-primary);
+            width: 24px;
+            height: 24px;
+            left: 4px;
+            top: 4px;
+        }
+        
+        /* ══════════════════════════════════════════════════════════════
+           CONTROL PANEL
+           ══════════════════════════════════════════════════════════════ */
+        .control-row {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+        
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .control-label {
+            font-size: 14px;
+            color: var(--md-sys-color-on-surface-variant);
+        }
+        
+        /* ══════════════════════════════════════════════════════════════
+           HISTORY TABLE
+           ══════════════════════════════════════════════════════════════ */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        
+        .data-table th {
+            text-align: left;
+            padding: 12px 16px;
+            font-weight: 500;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--md-sys-color-on-surface-variant);
+            border-bottom: 1px solid var(--md-sys-color-outline-variant);
+        }
+        
+        .data-table td {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--md-sys-color-outline-variant);
+        }
+        
+        .data-table tr:last-child td { border-bottom: none; }
+        
+        .data-table tr:hover { background: var(--md-sys-color-surface-variant); }
+        
+        .data-table tr.anomaly-row {
+            background: var(--md-sys-color-error-container);
+        }
+        
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            border-radius: var(--md-radius-xl);
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .status-badge--normal {
+            background: var(--md-sys-color-success-container);
+            color: var(--md-sys-color-success);
+        }
+        
+        .status-badge--anomaly {
+            background: var(--md-sys-color-error-container);
+            color: var(--md-sys-color-error);
+        }
+        
+        /* ══════════════════════════════════════════════════════════════
+           ANOMALY CHECKER INPUT
+           ══════════════════════════════════════════════════════════════ */
+        .input-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        
+        .text-field {
+            display: flex;
+            align-items: center;
+            height: 48px;
+            padding: 0 16px;
+            background: var(--md-sys-color-surface-variant);
+            border-radius: var(--md-radius-sm);
+            border: 1px solid transparent;
+            transition: all 0.2s;
+        }
+        
+        .text-field:focus-within {
+            border-color: var(--md-sys-color-primary);
+            background: var(--md-sys-color-surface);
+        }
+        
+        .text-field input {
+            border: none;
+            background: transparent;
+            font-family: inherit;
+            font-size: 16px;
+            width: 120px;
+            outline: none;
+        }
+        
+        .text-field__suffix {
+            font-size: 14px;
+            color: var(--md-sys-color-on-surface-variant);
+            margin-left: 4px;
+        }
+        
+        .result-banner {
+            padding: 16px;
+            border-radius: var(--md-radius-md);
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin-top: 16px;
+        }
+        
+        .result-banner--success {
+            background: var(--md-sys-color-success-container);
+            color: var(--md-sys-color-success);
+        }
+        
+        .result-banner--error {
+            background: var(--md-sys-color-error-container);
+            color: var(--md-sys-color-error);
+        }
+        
+        .result-banner .material-icons-outlined { font-size: 24px; }
+        
+        .result-banner__content strong {
+            display: block;
+            margin-bottom: 4px;
+        }
+        
+        .result-banner__content span {
+            font-size: 13px;
+            opacity: 0.85;
+        }
+        
+        /* ══════════════════════════════════════════════════════════════
+           SECTION DIVIDER
+           ══════════════════════════════════════════════════════════════ */
+        .section-header {
+            grid-column: span 12;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 0;
+            margin-top: 8px;
+        }
+        
+        .section-header h2 {
+            font-size: 14px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--md-sys-color-on-surface-variant);
+        }
+        
+        .section-header__line {
+            flex: 1;
+            height: 1px;
+            background: var(--md-sys-color-outline-variant);
+        }
+        
+        /* ══════════════════════════════════════════════════════════════
+           RESPONSIVE
+           ══════════════════════════════════════════════════════════════ */
+        @media (max-width: 1200px) {
+            .card--power-chart { grid-column: span 12; }
+            .card--ml-forecast { grid-column: span 12; }
+        }
+        
+        @media (max-width: 900px) {
+            .card--anomaly { grid-column: span 12; }
+            .card--history { grid-column: span 12; }
+            .metric-card__value { font-size: 36px; }
+        }
+        
+        @media (max-width: 600px) {
+            .main-container { padding: 16px; }
+            .dashboard-grid { gap: 16px; }
+            .top-app-bar__title { font-size: 18px; }
+            .metrics-row { grid-template-columns: repeat(2, 1fr); }
+            .metric-card { padding: 16px; }
+            .metric-card__value { font-size: 28px; }
+            .metric-card__unit { font-size: 14px; }
+        }
+        
+        /* ══════════════════════════════════════════════════════════════
+           LOADING STATE
+           ══════════════════════════════════════════════════════════════ */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            color: var(--md-sys-color-on-surface-variant);
+        }
+        
+        .spinner {
+            width: 24px;
+            height: 24px;
+            border: 3px solid var(--md-sys-color-surface-variant);
+            border-top-color: var(--md-sys-color-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 12px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: var(--md-sys-color-on-surface-variant);
+        }
+        
+        .empty-state .material-icons-outlined {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+    <!-- ════════════════════════════════════════════════════════════════
+         TOP APP BAR
+         ════════════════════════════════════════════════════════════════ -->
+    <header class="top-app-bar">
+        <div class="top-app-bar__leading">
+            <div class="top-app-bar__icon">
+                <span class="material-icons-outlined">bolt</span>
+            </div>
+            <h1 class="top-app-bar__title">Smart Energy Monitor</h1>
+        </div>
+        
+        <div class="top-app-bar__spacer"></div>
+        
+        <div class="top-app-bar__actions">
+            <!-- Device Selector -->
+            <div class="device-selector">
+                <span class="material-icons-outlined">devices</span>
+                <select id="deviceSelect" onchange="changeDevice()">
+                    <option value="fridge">🧊 Fridge</option>
+                    <option value="ac_1">❄️ AC Unit 1</option>
+                    <option value="ac_2">❄️ AC Unit 2</option>
+                    <option value="boiler">🔥 Boiler</option>
+                    <option value="washing_machine">🧺 Washing Machine</option>
+                    <option value="dishwasher">🍽️ Dishwasher</option>
+                </select>
+            </div>
+            
+            <!-- Connection Status -->
+            <div class="status-chip offline" id="statusChip">
+                <span class="status-dot"></span>
+                <span id="statusText">Offline</span>
+            </div>
+            
+            <!-- Stream Toggle -->
+            <button class="btn btn--filled" id="streamBtn" onclick="toggleStream()">
+                <span class="material-icons-outlined">play_arrow</span>
+                Connect
+            </button>
+        </div>
+    </header>
+    
+    <!-- ════════════════════════════════════════════════════════════════
+         MAIN DASHBOARD
+         ════════════════════════════════════════════════════════════════ -->
+    <main class="main-container">
+        <div class="dashboard-grid">
+            
+            <!-- ═══════════════════════════════════════════════════════
+                 LIVE METRICS ROW
+                 ═══════════════════════════════════════════════════════ -->
+            <div class="metrics-row">
+                <div class="metric-card metric-card--primary">
+                    <div class="metric-card__header">
+                        <span class="metric-card__label">Voltage</span>
+                        <div class="metric-card__icon">
+                            <span class="material-icons-outlined">electric_bolt</span>
+                        </div>
+                    </div>
+                    <div>
+                        <span class="metric-card__value" id="voltage">--</span>
+                        <span class="metric-card__unit">V</span>
+                    </div>
+                </div>
+                
+                <div class="metric-card metric-card--primary">
+                    <div class="metric-card__header">
+                        <span class="metric-card__label">Current</span>
+                        <div class="metric-card__icon">
+                            <span class="material-icons-outlined">waves</span>
+                        </div>
+                    </div>
+                    <div>
+                        <span class="metric-card__value" id="current">--</span>
+                        <span class="metric-card__unit">A</span>
+                    </div>
+                </div>
+                
+                <div class="metric-card metric-card--warning" id="powerCard">
+                    <div class="metric-card__header">
+                        <span class="metric-card__label">Power</span>
+                        <div class="metric-card__icon">
+                            <span class="material-icons-outlined">speed</span>
+                        </div>
+                    </div>
+                    <div>
+                        <span class="metric-card__value" id="power">--</span>
+                        <span class="metric-card__unit">W</span>
+                    </div>
+                </div>
+                
+                <div class="metric-card metric-card--success">
+                    <div class="metric-card__header">
+                        <span class="metric-card__label">Energy</span>
+                        <div class="metric-card__icon">
+                            <span class="material-icons-outlined">battery_charging_full</span>
+                        </div>
+                    </div>
+                    <div>
+                        <span class="metric-card__value" id="energy">--</span>
+                        <span class="metric-card__unit">kWh</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- ═══════════════════════════════════════════════════════
+                 POWER CHART - Main Visualization
+                 ═══════════════════════════════════════════════════════ -->
+            <div class="card card--elevated card--power-chart">
+                <div class="card__header">
+                    <div class="card__headline">
+                        <div class="card__headline-icon">
+                            <span class="material-icons-outlined">show_chart</span>
+                        </div>
+                        <div class="card__headline-text">
+                            <h3>Real-Time Power Consumption</h3>
+                            <span>Last 100 readings · <span id="chartDeviceName">Fridge</span></span>
+                        </div>
+                    </div>
+                    <button class="btn btn--icon" onclick="clearChartData()" title="Clear chart">
+                        <span class="material-icons-outlined">delete_outline</span>
+                    </button>
+                </div>
+                <div class="card__content">
+                    <div class="chart-area chart-area--large">
+                        <canvas id="powerChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- ═══════════════════════════════════════════════════════
+                 ML PREDICTIONS PANEL
+                 ═══════════════════════════════════════════════════════ -->
+            <div class="card card--ml-forecast">
+                <div class="card__header">
+                    <div class="card__headline">
+                        <div class="card__headline-icon" style="background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container);">
+                            <span class="material-icons-outlined">psychology</span>
+                        </div>
+                        <div class="card__headline-text">
+                            <h3>ML Predictions</h3>
+                            <span>Next hour forecast</span>
+                        </div>
+                    </div>
+                    <button class="btn btn--icon" onclick="loadPredictions()" title="Refresh predictions">
+                        <span class="material-icons-outlined">refresh</span>
+                    </button>
+                </div>
+                <div class="card__content">
+                    <div class="prediction-panel" id="predictionPanel">
+                        <div class="loading">
+                            <div class="spinner"></div>
+                            Loading predictions...
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- ═══════════════════════════════════════════════════════
+                 SECTION: ANALYSIS
+                 ═══════════════════════════════════════════════════════ -->
+            <div class="section-header">
+                <h2>Analysis & History</h2>
+                <div class="section-header__line"></div>
+            </div>
+            
+            <!-- ═══════════════════════════════════════════════════════
+                 ANOMALY DETECTION
+                 ═══════════════════════════════════════════════════════ -->
+            <div class="card card--anomaly">
+                <div class="card__header">
+                    <div class="card__headline">
+                        <div class="card__headline-icon" style="background: var(--md-sys-color-error-container); color: var(--md-sys-color-error);">
+                            <span class="material-icons-outlined">warning</span>
+                        </div>
+                        <div class="card__headline-text">
+                            <h3>Anomaly Detection</h3>
+                            <span>Check if a power reading is unusual</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card__content">
+                    <div class="input-group">
+                        <div class="text-field">
+                            <input type="number" id="anomalyPower" placeholder="Enter power">
+                            <span class="text-field__suffix">W</span>
+                        </div>
+                        <button class="btn btn--filled-tonal" onclick="checkAnomaly()">
+                            <span class="material-icons-outlined">search</span>
+                            Check
+                        </button>
+                    </div>
+                    <div id="anomalyResult"></div>
+                    
+                    <div class="chart-area chart-area--small" style="margin-top: 20px;">
+                        <canvas id="anomalyChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- ═══════════════════════════════════════════════════════
+                 RECENT HISTORY
+                 ═══════════════════════════════════════════════════════ -->
+            <div class="card card--history">
+                <div class="card__header">
+                    <div class="card__headline">
+                        <div class="card__headline-icon" style="background: var(--md-sys-color-surface-variant); color: var(--md-sys-color-on-surface-variant);">
+                            <span class="material-icons-outlined">history</span>
+                        </div>
+                        <div class="card__headline-text">
+                            <h3>Recent Readings</h3>
+                            <span>Last 15 measurements</span>
+                        </div>
+                    </div>
+                    <button class="btn btn--icon" onclick="loadHistory()" title="Refresh">
+                        <span class="material-icons-outlined">refresh</span>
+                    </button>
+                </div>
+                <div class="card__content" style="padding: 0; max-height: 400px; overflow-y: auto;">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Power</th>
+                                <th>Voltage</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyBody">
+                            <tr>
+                                <td colspan="4" class="loading">
+                                    <div class="spinner"></div>
+                                    Loading history...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- ═══════════════════════════════════════════════════════
+                 SECTION: CONTROLS
+                 ═══════════════════════════════════════════════════════ -->
+            <div class="section-header">
+                <h2>Device Controls</h2>
+                <div class="section-header__line"></div>
+            </div>
+            
+            <!-- ═══════════════════════════════════════════════════════
+                 CONTROL PANEL
+                 ═══════════════════════════════════════════════════════ -->
+            <div class="card card--controls">
+                <div class="card__content">
+                    <div class="control-row">
+                        <!-- Relay Control -->
+                        <div class="control-group">
+                            <span class="material-icons-outlined" style="color: var(--md-sys-color-on-surface-variant);">power_settings_new</span>
+                            <span class="control-label">Relay Power:</span>
+                            <label class="switch">
+                                <input type="checkbox" id="relaySwitch" onchange="toggleRelay()">
+                                <span class="switch__track"></span>
+                                <span class="switch__thumb"></span>
+                            </label>
+                            <span id="relayStatus" class="control-label" style="font-weight: 500;">OFF</span>
+                        </div>
+                        
+                        <div style="flex: 1;"></div>
+                        
+                        <!-- Simulate Data -->
+                        <div class="control-group">
+                            <button class="btn btn--outlined" onclick="simulateReadings()">
+                                <span class="material-icons-outlined">science</span>
+                                Add Test Data
+                            </button>
+                            <span id="simStatus" style="font-size: 13px; color: var(--md-sys-color-success);"></span>
+                        </div>
+                        
+                        <!-- Model Info -->
+                        <div class="control-group">
+                            <button class="btn btn--outlined" onclick="showModelInfo()">
+                                <span class="material-icons-outlined">info</span>
+                                Model Info
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+    </main>
+    
+    <!-- ════════════════════════════════════════════════════════════════
+         JAVASCRIPT
+         ════════════════════════════════════════════════════════════════ -->
+    <script>
+        // ══════════════════════════════════════════════════════════════
+        // STATE
+        // ══════════════════════════════════════════════════════════════
+        let eventSource = null;
+        let streaming = false;
+        let selectedDevice = 'fridge';
+        const MAX_POINTS = 100;
+        
+        const liveData = {
+            timestamps: [],
+            power: [],
+            voltage: [],
+            current: []
+        };
+        
+        let powerChart, anomalyChart;
+        
+        // ══════════════════════════════════════════════════════════════
+        // DEVICE SELECTION
+        // ══════════════════════════════════════════════════════════════
+        function changeDevice() {
+            selectedDevice = document.getElementById('deviceSelect').value;
+            document.getElementById('chartDeviceName').textContent = formatDeviceName(selectedDevice);
+            
+            // Clear and reload data for new device
+            clearChartData();
+            loadPredictions();
+            loadHistory();
+            loadAnomalyChart();
+        }
+        
+        function formatDeviceName(name) {
+            return name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        }
+        
+        // ══════════════════════════════════════════════════════════════
+        // STREAMING
+        // ══════════════════════════════════════════════════════════════
+        function toggleStream() {
+            const btn = document.getElementById('streamBtn');
+            const chip = document.getElementById('statusChip');
+            const statusText = document.getElementById('statusText');
+            
+            if (streaming) {
+                // Stop streaming
+                if (eventSource) {
+                    eventSource.close();
+                    eventSource = null;
+                }
+                streaming = false;
+                btn.innerHTML = '<span class="material-icons-outlined">play_arrow</span> Connect';
+                btn.classList.remove('btn--error');
+                btn.classList.add('btn--filled');
+                chip.classList.remove('online');
+                chip.classList.add('offline');
+                statusText.textContent = 'Offline';
+            } else {
+                // Start streaming
+                eventSource = new EventSource('/stream');
+                
+                eventSource.onopen = () => {
+                    streaming = true;
+                    btn.innerHTML = '<span class="material-icons-outlined">stop</span> Disconnect';
+                    btn.classList.remove('btn--filled');
+                    btn.classList.add('btn--error');
+                    chip.classList.remove('offline');
+                    chip.classList.add('online');
+                    statusText.textContent = 'Live';
+                };
+                
+                eventSource.onmessage = (e) => {
+                    const data = JSON.parse(e.data);
+                    updateMetrics(data);
+                    updatePowerChart(data);
+                };
+                
+                eventSource.onerror = () => {
+                    chip.classList.remove('online');
+                    chip.classList.add('offline');
+                    statusText.textContent = 'Error';
+                };
+            }
+        }
+        
+        // ══════════════════════════════════════════════════════════════
+        // METRICS UPDATE
+        // ══════════════════════════════════════════════════════════════
+        function updateMetrics(data) {
+            document.getElementById('voltage').textContent = data.voltage?.toFixed(1) ?? '--';
+            document.getElementById('current').textContent = data.current?.toFixed(2) ?? '--';
+            document.getElementById('power').textContent = data.power?.toFixed(1) ?? '--';
+            document.getElementById('energy').textContent = data.energy?.toFixed(4) ?? '--';
+            
+            // Highlight anomalies
+            const powerCard = document.getElementById('powerCard');
+            if (data.anomaly) {
+                powerCard.classList.add('metric-card--error');
+                powerCard.classList.remove('metric-card--warning');
+            } else {
+                powerCard.classList.remove('metric-card--error');
+                powerCard.classList.add('metric-card--warning');
+            }
+        }
+        
+        // ══════════════════════════════════════════════════════════════
+        // CHARTS
+        // ══════════════════════════════════════════════════════════════
+        function initCharts() {
+            const chartConfig = {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 200 },
+                plugins: {
+                    legend: { display: false }
+                }
+            };
+            
+            // Power Chart
+            powerChart = new Chart(document.getElementById('powerChart'), {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Power (W)',
+                        data: [],
+                        borderColor: '#0061a4',
+                        backgroundColor: 'rgba(0, 97, 164, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 0,
+                        pointHoverRadius: 6,
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    ...chartConfig,
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    },
+                    scales: {
+                        x: {
+                            display: true,
+                            grid: { display: false },
+                            ticks: { maxTicksLimit: 8, color: '#73777f' }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(115, 119, 127, 0.1)' },
+                            ticks: { color: '#73777f' }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(26, 28, 30, 0.9)',
+                            titleColor: '#fff',
+                            bodyColor: '#fff',
+                            padding: 12,
+                            cornerRadius: 8,
+                            displayColors: false
+                        }
+                    }
+                }
+            });
+            
+            // Anomaly Chart
+            anomalyChart = new Chart(document.getElementById('anomalyChart'), {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: 'Normal',
+                        data: [],
+                        backgroundColor: 'rgba(0, 109, 59, 0.6)',
+                        pointRadius: 6
+                    }, {
+                        label: 'Anomaly',
+                        data: [],
+                        backgroundColor: 'rgba(186, 26, 26, 0.8)',
+                        pointRadius: 8
+                    }]
+                },
+                options: {
+                    ...chartConfig,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: { usePointStyle: true, padding: 16 }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Reading #', color: '#73777f' },
+                            grid: { color: 'rgba(115, 119, 127, 0.1)' },
+                            ticks: { color: '#73777f' }
+                        },
+                        y: {
+                            title: { display: true, text: 'Power (W)', color: '#73777f' },
+                            grid: { color: 'rgba(115, 119, 127, 0.1)' },
+                            ticks: { color: '#73777f' }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function updatePowerChart(data) {
+            const time = new Date(data.timestamp || Date.now()).toLocaleTimeString();
+            
+            liveData.timestamps.push(time);
+            liveData.power.push(data.power || 0);
+            
+            if (liveData.timestamps.length > MAX_POINTS) {
+                liveData.timestamps.shift();
+                liveData.power.shift();
+            }
+            
+            powerChart.data.labels = liveData.timestamps;
+            powerChart.data.datasets[0].data = liveData.power;
+            powerChart.update('none');
+        }
+        
+        function clearChartData() {
+            liveData.timestamps = [];
+            liveData.power = [];
+            liveData.voltage = [];
+            liveData.current = [];
+            
+            powerChart.data.labels = [];
+            powerChart.data.datasets[0].data = [];
+            powerChart.update();
+        }
+        
+        // ══════════════════════════════════════════════════════════════
+        // ML PREDICTIONS
+        // ══════════════════════════════════════════════════════════════
+        async function loadPredictions() {
+            const panel = document.getElementById('predictionPanel');
+            panel.innerHTML = '<div class="loading"><div class="spinner"></div>Loading predictions...</div>';
+            
+            try {
+                const [powerRes, onoffRes, historyRes] = await Promise.all([
+                    fetch(`/ml/predict/${selectedDevice}`),
+                    fetch(`/ml/predict-onoff/${selectedDevice}`),
+                    fetch(`/ml/history/${selectedDevice}`)
+                ]);
+                
+                const power = await powerRes.json();
+                const onoff = await onoffRes.json();
+                const history = await historyRes.json();
+                
+                let html = '';
+                
+                // Power Prediction
+                if (power.error) {
+                    html += `
+                        <div class="prediction-item">
+                            <div class="prediction-item__header">
+                                <span class="prediction-item__label">Power Forecast</span>
+                                <span class="prediction-item__badge badge--warning">Needs Data</span>
+                            </div>
+                            <div class="prediction-item__value">--<small> W</small></div>
+                            <div class="prediction-item__meta">Add more readings to enable predictions</div>
+                        </div>
+                    `;
+                } else {
+                    html += `
+                        <div class="prediction-item">
+                            <div class="prediction-item__header">
+                                <span class="prediction-item__label">Next Hour Power</span>
+                                <span class="prediction-item__badge badge--success">Predicted</span>
+                            </div>
+                            <div class="prediction-item__value">${power.predicted_power}<small> W</small></div>
+                            <div class="prediction-item__meta">Based on ML model analysis</div>
+                        </div>
+                    `;
+                }
+                
+                // ON/OFF Prediction
+                if (!onoff.error) {
+                    const badgeClass = onoff.will_be_on ? 'badge--success' : 'badge--warning';
+                    const statusText = onoff.will_be_on ? 'Active' : 'Idle';
+                    html += `
+                        <div class="prediction-item">
+                            <div class="prediction-item__header">
+                                <span class="prediction-item__label">Activity Forecast</span>
+                                <span class="prediction-item__badge ${badgeClass}">${statusText}</span>
+                            </div>
+                            <div class="prediction-item__value">${onoff.confidence}<small>%</small></div>
+                            <div class="prediction-item__meta">Confidence level for next hour</div>
+                        </div>
+                    `;
+                }
+                
+                // History count
+                html += `
+                    <div class="prediction-item">
+                        <div class="prediction-item__header">
+                            <span class="prediction-item__label">Data Points</span>
+                        </div>
+                        <div class="prediction-item__value">${history.count}<small> readings</small></div>
+                        <div class="prediction-item__meta">In prediction buffer</div>
+                    </div>
+                `;
+                
+                panel.innerHTML = html;
+                
+            } catch (e) {
+                panel.innerHTML = `<div class="empty-state"><span class="material-icons-outlined">error_outline</span><p>Error loading predictions</p></div>`;
+            }
+        }
+        
+        // ══════════════════════════════════════════════════════════════
+        // ANOMALY DETECTION
+        // ══════════════════════════════════════════════════════════════
+        async function checkAnomaly() {
+            const power = parseFloat(document.getElementById('anomalyPower').value);
+            const resultDiv = document.getElementById('anomalyResult');
+            
+            if (isNaN(power)) {
+                resultDiv.innerHTML = '<div class="result-banner result-banner--error"><span class="material-icons-outlined">error</span><div class="result-banner__content"><strong>Invalid Input</strong><span>Please enter a valid power value</span></div></div>';
+                return;
+            }
+            
+            try {
+                const res = await fetch(`/ml/anomaly/${selectedDevice}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ power })
+                });
+                const data = await res.json();
+                
+                if (data.is_anomaly) {
+                    resultDiv.innerHTML = `
+                        <div class="result-banner result-banner--error">
+                            <span class="material-icons-outlined">warning</span>
+                            <div class="result-banner__content">
+                                <strong>⚠️ Anomaly Detected</strong>
+                                <span>Z-score: ${data.z_score} · Expected: 0 - ${data.stats?.threshold_high || '--'} W<br>
+                                Reason: ${data.reason?.join(', ') || 'Unusual consumption pattern'}</span>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="result-banner result-banner--success">
+                            <span class="material-icons-outlined">check_circle</span>
+                            <div class="result-banner__content">
+                                <strong>✓ Normal Reading</strong>
+                                <span>Z-score: ${data.z_score} · Mean: ${data.stats?.mean || '--'} W · Std: ${data.stats?.std || '--'} W</span>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                loadAnomalyChart();
+                
+            } catch (e) {
+                resultDiv.innerHTML = '<div class="result-banner result-banner--error"><span class="material-icons-outlined">error</span><div class="result-banner__content"><strong>Error</strong><span>Could not check anomaly status</span></div></div>';
+            }
+        }
+        
+        async function loadAnomalyChart() {
+            try {
+                const res = await fetch(`/ml/history/${selectedDevice}`);
+                const data = await res.json();
+                
+                const normal = [];
+                const anomalies = [];
+                
+                // Get threshold from model
+                let threshold = 100;
+                try {
+                    const infoRes = await fetch('/ml/info');
+                    const info = await infoRes.json();
+                    // Use device-specific threshold if available
+                } catch (e) {}
+                
+                if (data.readings) {
+                    data.readings.forEach((r, i) => {
+                        const point = { x: i, y: r.power || 0 };
+                        // Simple threshold for visualization
+                        if (r.power > threshold * 3) {
+                            anomalies.push(point);
+                        } else {
+                            normal.push(point);
+                        }
+                    });
+                }
+                
+                anomalyChart.data.datasets[0].data = normal;
+                anomalyChart.data.datasets[1].data = anomalies;
+                anomalyChart.update();
+            } catch (e) {
+                console.error('Anomaly chart error:', e);
+            }
+        }
+        
+        // ══════════════════════════════════════════════════════════════
+        // HISTORY
+        // ══════════════════════════════════════════════════════════════
+        async function loadHistory() {
+            const tbody = document.getElementById('historyBody');
+            
+            try {
+                const res = await fetch('/history?limit=15');
+                const data = await res.json();
+                
+                if (data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" class="empty-state"><span class="material-icons-outlined">inbox</span><p>No readings yet</p></td></tr>';
+                    return;
+                }
+                
+                const reversed = [...data].reverse();
+                
+                tbody.innerHTML = reversed.map(row => `
+                    <tr class="${row.anomaly === 'True' ? 'anomaly-row' : ''}">
+                        <td>${formatTime(row.timestamp)}</td>
+                        <td><strong>${parseFloat(row.power || 0).toFixed(1)}</strong> W</td>
+                        <td>${parseFloat(row.voltage || 0).toFixed(1)} V</td>
+                        <td>
+                            ${row.anomaly === 'True' 
+                                ? '<span class="status-badge status-badge--anomaly"><span class="material-icons-outlined" style="font-size:14px">warning</span>Anomaly</span>' 
+                                : '<span class="status-badge status-badge--normal"><span class="material-icons-outlined" style="font-size:14px">check</span>Normal</span>'
+                            }
+                        </td>
+                    </tr>
+                `).join('');
+                
+            } catch (e) {
+                tbody.innerHTML = '<tr><td colspan="4" class="empty-state"><span class="material-icons-outlined">error_outline</span><p>Error loading history</p></td></tr>';
+            }
+        }
+        
+        function formatTime(iso) {
+            if (!iso) return '--';
+            return new Date(iso).toLocaleTimeString();
+        }
+        
+        // ══════════════════════════════════════════════════════════════
+        // RELAY CONTROL
+        // ══════════════════════════════════════════════════════════════
+        async function toggleRelay() {
+            const on = document.getElementById('relaySwitch').checked;
+            try {
+                await fetch('/relay', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ on })
+                });
+                document.getElementById('relayStatus').textContent = on ? 'ON' : 'OFF';
+                document.getElementById('relayStatus').style.color = on ? 'var(--md-sys-color-success)' : '';
+            } catch (e) {
+                console.error('Relay error:', e);
+            }
+        }
+        
+        async function loadRelayState() {
+            try {
+                const res = await fetch('/relay');
+                const data = await res.json();
+                document.getElementById('relaySwitch').checked = data.on;
+                document.getElementById('relayStatus').textContent = data.on ? 'ON' : 'OFF';
+                document.getElementById('relayStatus').style.color = data.on ? 'var(--md-sys-color-success)' : '';
+            } catch (e) {}
+        }
+        
+        // ══════════════════════════════════════════════════════════════
+        // SIMULATE DATA
+        // ══════════════════════════════════════════════════════════════
+        async function simulateReadings() {
+            const status = document.getElementById('simStatus');
+            
+            const basePower = {
+                fridge: 35, ac_1: 800, ac_2: 600, boiler: 1500,
+                washing_machine: 400, dishwasher: 800
+            };
+            
+            const base = basePower[selectedDevice] || 100;
+            const readings = Array.from({length: 10}, () => 
+                Math.max(0, base + (Math.random() - 0.5) * base * 0.4)
+            );
+            
+            try {
+                const res = await fetch('/ml/simulate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ appliance: selectedDevice, readings })
+                });
+                const data = await res.json();
+                status.textContent = `✓ Added ${data.readings_added} readings`;
+                status.style.color = 'var(--md-sys-color-success)';
+                
+                // Refresh predictions
+                loadPredictions();
+                loadAnomalyChart();
+                
+                setTimeout(() => { status.textContent = ''; }, 3000);
+            } catch (e) {
+                status.textContent = 'Error adding data';
+                status.style.color = 'var(--md-sys-color-error)';
+            }
+        }
+        
+        // ══════════════════════════════════════════════════════════════
+        // MODEL INFO
+        // ══════════════════════════════════════════════════════════════
+        async function showModelInfo() {
+            try {
+                const res = await fetch('/ml/info');
+                const data = await res.json();
+                
+                alert(`ML Models Loaded:
+                
+Power Predictors: ${data.power_predictors?.length || 0}
+  → ${data.power_predictors?.join(', ') || 'None'}
+  
+Anomaly Detectors: ${data.anomaly_detectors?.length || 0}
+  → ${data.anomaly_detectors?.join(', ') || 'None'}
+  
+ON/OFF Classifiers: ${data.classifiers?.length || 0}
+  → ${data.classifiers?.join(', ') || 'None'}
+
+Models Path: ${data.models_dir || 'N/A'}`);
+            } catch (e) {
+                alert('Error loading model info');
+            }
+        }
+        
+        // ══════════════════════════════════════════════════════════════
+        // INITIALIZATION
+        // ══════════════════════════════════════════════════════════════
+        document.addEventListener('DOMContentLoaded', () => {
+            initCharts();
+            loadRelayState();
+            loadPredictions();
+            loadHistory();
+            loadAnomalyChart();
+        });
+    </script>
+</body>
+</html>

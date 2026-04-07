@@ -1,0 +1,1 @@
+{"calibration_power": 600.0, "raw_i_rms_load": 0.2803938, "calibration_voltage": 230.0, "raw_v_rms_noload": 18.32485, "v_midpoint": 2965, "i_noise_threshold": 0.1070558, "acs_midpoint_v": 2.373065, "raw_v_rms_load": 1093.485, "v_scale": 0.2103367, "raw_i_rms_noload": 0.007671209, "acs_sensitivity": 0.1074843, "v_noise_threshold": 5.781582}

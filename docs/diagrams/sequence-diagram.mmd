@@ -1,0 +1,63 @@
+sequenceDiagram
+    autonumber
+    
+    participant S as Sensors
+    participant E as ESP32
+    participant M as NanoMQ
+    participant B as Backend
+    participant ML as ML Service
+    participant D as Dashboard
+    
+    Note over S,E: Sensing Phase
+    loop Every 1 second
+        S->>E: ADC Read (GPIO34, GPIO35)
+        E->>E: RMS Calculation (200 samples)
+        E->>E: Power = V × I
+        E->>E: Energy += P × dt
+        E->>E: Update OLED Display
+    end
+    
+    Note over E,M: Transmission Phase
+    E->>M: MQTT Publish<br>energy/device01/telemetry
+    M-->>E: ACK (QoS 1)
+    
+    Note over M,B: Backend Processing
+    M->>B: Forward Message
+    B->>B: Parse JSON
+    B->>B: Append to CSV
+    
+    Note over B,ML: ML Analysis
+    B->>ML: check_anomaly(reading)
+    ML->>ML: Z-score calculation
+    ML->>ML: Isolation Forest predict
+    ML-->>B: is_anomaly: true/false
+    
+    alt Anomaly Detected
+        B->>B: Log anomaly
+        B->>D: SSE Push (anomaly event)
+        D->>D: Show Alert Toast
+    end
+    
+    Note over B,D: Dashboard Update
+    B->>D: SSE Push (telemetry)
+    D->>D: Update Gauges
+    D->>D: Update Chart
+    
+    Note over D,B: User Control
+    D->>B: POST /relay {on: true}
+    B->>M: MQTT Publish<br>energy/device01/relay/set
+    M->>E: Relay Command
+    E->>E: relay.value(0)
+    E->>M: MQTT Publish<br>energy/device01/relay/state
+    M->>B: Forward State
+    B->>D: SSE Push (relay state)
+    
+    Note over D,ML: ML Prediction Request
+    D->>B: GET /ml/predict/fridge
+    B->>ML: predict_power("fridge")
+    ML->>ML: Load model
+    ML->>ML: Extract features
+    ML->>ML: LightGBM predict
+    ML-->>B: {predicted_power: 85.3}
+    B-->>D: JSON Response
+    D->>D: Display Prediction

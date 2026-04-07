@@ -1,0 +1,118 @@
+flowchart TD
+    subgraph Input["📊 Raw Data"]
+        RAW[("House_XX/<br>Electric_data/*.csv<br>Environmental_data/*.csv")]
+    end
+    
+    subgraph Loading["Stage 1: Data Loading"]
+        LOAD["load_house_data()"]
+        MERGE["Merge Electric +<br>Environmental"]
+        FIX["Fix Column Typos<br>external_temparature"]
+        
+        RAW --> LOAD
+        LOAD --> MERGE
+        MERGE --> FIX
+    end
+    
+    subgraph Cleaning["Stage 2: Data Cleaning"]
+        ISSUES["Remove issues=1 rows"]
+        MISSING["Drop missing target"]
+        OUTLIERS["Remove > 99.9%ile"]
+        FFILL["Forward fill gaps<br>(max 6 readings)"]
+        
+        FIX --> ISSUES
+        ISSUES --> MISSING
+        MISSING --> OUTLIERS
+        OUTLIERS --> FFILL
+    end
+    
+    subgraph Aggregation["Stage 3: Hourly Aggregation"]
+        HOURLY["Floor to hour"]
+        AGG["Aggregate:<br>mean, max, min, std"]
+        ISON["Calculate is_on<br>(power > threshold)"]
+        QUALITY["Filter: min 300<br>readings/hour"]
+        
+        FFILL --> HOURLY
+        HOURLY --> AGG
+        AGG --> ISON
+        ISON --> QUALITY
+    end
+    
+    subgraph Features["Stage 4: Feature Engineering"]
+        TIME["Time Features:<br>hour, day_of_week,<br>is_weekend, season"]
+        LAG["Lag Features:<br>lag_1, lag_24,<br>diff_1h, diff_24h"]
+        ROLL["Rolling Stats:<br>mean_6h, std_6h,<br>mean_24h"]
+        
+        QUALITY --> TIME
+        TIME --> LAG
+        LAG --> ROLL
+    end
+    
+    subgraph Output["📁 Processed Datasets"]
+        FULL[("appliance_hourly_full.csv")]
+        ACTIVE[("appliance_hourly_active.csv")]
+        CLASS[("appliance_classification.csv")]
+        
+        ROLL --> FULL
+        ROLL --> ACTIVE
+        ROLL --> CLASS
+    end
+    
+    subgraph Training["🧠 Model Training"]
+        subgraph Regressor["Power Predictor"]
+            LGBM_R["LightGBM<br>Regression"]
+            MAE["Optimize MAE"]
+            LGBM_R --> MAE
+        end
+        
+        subgraph Classifier["On/Off Classifier"]
+            LGBM_C["LightGBM<br>Binary"]
+            AUC["Optimize AUC"]
+            LGBM_C --> AUC
+        end
+        
+        subgraph Anomaly["Anomaly Detector"]
+            ISO["Isolation Forest<br>contamination=0.02"]
+            ZSCORE["Z-score<br>threshold=3σ"]
+            ISO --> ZSCORE
+        end
+        
+        FULL --> LGBM_R
+        ACTIVE --> LGBM_R
+        FULL --> LGBM_C
+        CLASS --> LGBM_C
+        FULL --> ISO
+    end
+    
+    subgraph Models["📦 Trained Models"]
+        PKL_P[("power_predictor.pkl")]
+        PKL_C[("classifier.pkl")]
+        PKL_A[("anomaly_v2.pkl")]
+        
+        MAE --> PKL_P
+        AUC --> PKL_C
+        ZSCORE --> PKL_A
+    end
+    
+    subgraph Inference["🔮 Real-time Inference"]
+        BACKEND["Backend Server"]
+        PREDICT["predict_power()"]
+        DETECT["detect_anomaly()"]
+        CLASSIFY["predict_on_off()"]
+        
+        PKL_P --> BACKEND
+        PKL_C --> BACKEND
+        PKL_A --> BACKEND
+        BACKEND --> PREDICT
+        BACKEND --> DETECT
+        BACKEND --> CLASSIFY
+    end
+
+    style Input fill:#e3f2fd
+    style Loading fill:#fff3e0
+    style Cleaning fill:#fff3e0
+    style Aggregation fill:#fff3e0
+    style Features fill:#fff3e0
+    style Output fill:#e8f5e9
+    style Training fill:#fce4ec
+    style Models fill:#f3e5f5
+    style Inference fill:#e8f5e9

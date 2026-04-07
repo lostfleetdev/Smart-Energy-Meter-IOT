@@ -1,0 +1,109 @@
+flowchart LR
+    subgraph Sensing["🔌 Sensing"]
+        AC["⚡ AC Mains<br>230V 50Hz"]
+        ZMPT["ZMPT101B<br>Voltage"]
+        ACS["ACS712<br>Current"]
+        
+        AC -->|"Parallel"| ZMPT
+        AC -->|"Series"| ACS
+    end
+    
+    subgraph ADC["📊 ADC Sampling"]
+        GPIO35["GPIO35<br>ADC1_CH7"]
+        GPIO34["GPIO34<br>ADC1_CH6"]
+        
+        ZMPT --> GPIO35
+        ACS --> GPIO34
+    end
+    
+    subgraph Calc["🔢 Calculation"]
+        RMS_V["RMS Voltage<br>√(Σv²/n)"]
+        RMS_I["RMS Current<br>√(Σi²/n)"]
+        POWER["Power<br>P = V × I"]
+        ENERGY["Energy<br>E += P × dt"]
+        
+        GPIO35 -->|"200 samples"| RMS_V
+        GPIO34 -->|"200 samples"| RMS_I
+        RMS_V --> POWER
+        RMS_I --> POWER
+        POWER --> ENERGY
+    end
+    
+    subgraph Local["📟 Local Display"]
+        OLED["SSD1306<br>OLED 128×64"]
+        
+        POWER --> OLED
+        ENERGY --> OLED
+    end
+    
+    subgraph Transmit["📡 Transmission"]
+        JSON["JSON Payload<br>{v, i, p, e}"]
+        MQTT_PUB["MQTT Publish"]
+        WIFI["WiFi<br>2.4 GHz"]
+        
+        POWER --> JSON
+        ENERGY --> JSON
+        JSON --> MQTT_PUB
+        MQTT_PUB --> WIFI
+    end
+    
+    subgraph Broker["📬 MQTT Broker"]
+        NANOMQ["NanoMQ<br>:1883"]
+        TOPIC["Topic:<br>energy/device01/telemetry"]
+        
+        WIFI --> NANOMQ
+        NANOMQ --> TOPIC
+    end
+    
+    subgraph Backend["🖥️ Backend"]
+        SUBSCRIBE["MQTT Subscribe"]
+        PARSE["Parse JSON"]
+        STORE["Append CSV"]
+        ANOMALY["Anomaly Check"]
+        BUFFER["Data Buffer<br>deque(100)"]
+        
+        TOPIC --> SUBSCRIBE
+        SUBSCRIBE --> PARSE
+        PARSE --> STORE
+        PARSE --> ANOMALY
+        PARSE --> BUFFER
+    end
+    
+    subgraph ML["🧠 ML Service"]
+        ZSCORE["Z-Score<br>|z| > 3?"]
+        IFOREST["Isolation Forest<br>predict()"]
+        RESULT["is_anomaly<br>true/false"]
+        
+        ANOMALY --> ZSCORE
+        ANOMALY --> IFOREST
+        ZSCORE --> RESULT
+        IFOREST --> RESULT
+    end
+    
+    subgraph Stream["📤 Streaming"]
+        SSE["SSE Endpoint<br>/stream"]
+        
+        BUFFER --> SSE
+        RESULT --> SSE
+    end
+    
+    subgraph Dashboard["🖼️ Dashboard"]
+        GAUGES["Power Gauges"]
+        CHART["Line Chart"]
+        ALERTS["Anomaly Alerts"]
+        
+        SSE --> GAUGES
+        SSE --> CHART
+        SSE --> ALERTS
+    end
+
+    style Sensing fill:#ffebee
+    style ADC fill:#e3f2fd
+    style Calc fill:#e8f5e9
+    style Local fill:#fff3e0
+    style Transmit fill:#f3e5f5
+    style Broker fill:#e0f7fa
+    style Backend fill:#fce4ec
+    style ML fill:#ede7f6
+    style Stream fill:#e0f2f1
+    style Dashboard fill:#fff8e1

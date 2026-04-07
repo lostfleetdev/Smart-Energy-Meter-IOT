@@ -1,0 +1,207 @@
+{
+  "trained_at": "2026-04-07T08:45:31.163989",
+  "power_metrics": [
+    {
+      "appliance": "ac_1",
+      "dataset": "ac_1_hourly_active.csv",
+      "train_size": 3400,
+      "test_size": 850,
+      "mae": 41.22786086274425,
+      "rmse": 70.60157935368606,
+      "r2": 0.9834626798277285,
+      "mae_pct": 12.737638918917288,
+      "target_mean": 323.66956800380603,
+      "target_std": 473.9113642605636
+    },
+    {
+      "appliance": "ac_2",
+      "dataset": "ac_2_hourly_active.csv",
+      "train_size": 4453,
+      "test_size": 1114,
+      "mae": 44.782705627404326,
+      "rmse": 94.98205564793848,
+      "r2": 0.8973303993025692,
+      "mae_pct": 17.290868052942674,
+      "target_mean": 258.9962834155276,
+      "target_std": 335.7395500134433
+    },
+    {
+      "appliance": "boiler",
+      "dataset": "boiler_hourly_active.csv",
+      "train_size": 3406,
+      "test_size": 852,
+      "mae": 19.874569430503087,
+      "rmse": 75.54269086759416,
+      "r2": 0.9864026044484868,
+      "mae_pct": 8.631179297996876,
+      "target_mean": 230.26481949130147,
+      "target_std": 567.6164741146292
+    },
+    {
+      "appliance": "fridge",
+      "dataset": "fridge_hourly_full.csv",
+      "train_size": 29016,
+      "test_size": 7254,
+      "mae": 1.427517581587367,
+      "rmse": 2.6554777419454503,
+      "r2": 0.9874482049965987,
+      "mae_pct": 4.059583518288824,
+      "target_mean": 35.16413876340417,
+      "target_std": 20.322129081326942
+    },
+    {
+      "appliance": "washing_machine",
+      "dataset": "washing_machine_hourly_active.csv",
+      "train_size": 1835,
+      "test_size": 459,
+      "mae": 4.119487098011886,
+      "rmse": 13.797117291746314,
+      "r2": 0.9840542338353288,
+      "mae_pct": 9.529667112921942,
+      "target_mean": 43.22802726682851,
+      "target_std": 100.03917734476619
+    },
+    {
+      "appliance": "dishwasher",
+      "dataset": "dishwasher_hourly_full.csv",
+      "train_size": 3920,
+      "test_size": 981,
+      "mae": 1.0059529048640132,
+      "rmse": 9.369289974335723,
+      "r2": 0.9312184032209045,
+      "mae_pct": 14.29747764230277,
+      "target_mean": 7.035876747151837,
+      "target_std": 39.07548977603298
+    }
+  ],
+  "classifier_metrics": [
+    {
+      "appliance": "ac_1",
+      "train_size": 27807,
+      "test_size": 6952,
+      "accuracy": 0.963463751438435,
+      "precision": 0.6744730679156908,
+      "recall": 0.7146401985111662,
+      "f1": 0.6939759036144578,
+      "auc": 0.9635625237046781,
+      "threshold": 0.8500000000000002,
+      "class_balance": 3.8666244713599354
+    },
+    {
+      "appliance": "ac_2",
+      "train_size": 24793,
+      "test_size": 6199,
+      "accuracy": 0.904500725923536,
+      "precision": 0.401920438957476,
+      "recall": 0.6525612472160356,
+      "f1": 0.49745331069609505,
+      "auc": 0.8967750556792873,
+      "threshold": 0.6000000000000002,
+      "class_balance": 6.795302013422819
+    },
+    {
+      "appliance": "boiler",
+      "train_size": 28570,
+      "test_size": 7143,
+      "accuracy": 0.9855802883942321,
+      "precision": 0.17045454545454544,
+      "recall": 0.3333333333333333,
+      "f1": 0.22556390977443608,
+      "auc": 0.8763642340565416,
+      "threshold": 0.7500000000000002,
+      "class_balance": 1.0360372973427043
+    },
+    {
+      "appliance": "fridge",
+      "train_size": 29012,
+      "test_size": 7253,
+      "accuracy": 0.9618089066593134,
+      "precision": 0.9618089066593134,
+      "recall": 1.0,
+      "f1": 0.9805327148780659,
+      "auc": 0.6699586824760706,
+      "threshold": 0.1,
+      "class_balance": 70.76520060664552
+    },
+    {
+      "appliance": "washing_machine",
+      "train_size": 21599,
+      "test_size": 5400,
+      "accuracy": 0.9903703703703703,
+      "precision": 0.3111111111111111,
+      "recall": 0.4,
+      "f1": 0.35,
+      "auc": 0.8586393289841566,
+      "threshold": 0.8000000000000002,
+      "class_balance": 1.9815548724026817
+    }
+  ],
+  "anomaly_stats": [
+    {
+      "appliance": "ac_1",
+      "total_samples": 34764,
+      "anomaly_count": 696,
+      "anomaly_pct": 2.002071108042803,
+      "normal_mean": 22.375493007962014,
+      "normal_std": 139.8244902240559,
+      "threshold_high": 441.84896368012966,
+      "threshold_low": 0.0,
+      "anomaly_mean_power": 934.8328136277252
+    },
+    {
+      "appliance": "ac_2",
+      "total_samples": 30996,
+      "anomaly_count": 620,
+      "anomaly_pct": 2.0002580978190734,
+      "normal_mean": 32.348697029566466,
+      "normal_std": 132.7801498236107,
+      "threshold_high": 430.6891465003986,
+      "threshold_low": 0.0,
+      "anomaly_mean_power": 791.3451178772634
+    },
+    {
+      "appliance": "boiler",
+      "total_samples": 35718,
+      "anomaly_count": 715,
+      "anomaly_pct": 2.0017918136513804,
+      "normal_mean": 2.6421647656312186,
+      "normal_std": 37.777424543659684,
+      "threshold_high": 115.97443839661027,
+      "threshold_low": 0.0,
+      "anomaly_mean_power": 1254.9206997856488
+    },
+    {
+      "appliance": "fridge",
+      "total_samples": 36270,
+      "anomaly_count": 726,
+      "anomaly_pct": 2.001654259718776,
+      "normal_mean": 34.058108832461606,
+      "normal_std": 18.690463866890504,
+      "threshold_high": 90.12950043313312,
+      "threshold_low": 0.0,
+      "anomaly_mean_power": 89.31390166343485
+    },
+    {
+      "appliance": "washing_machine",
+      "total_samples": 27003,
+      "anomaly_count": 541,
+      "anomaly_pct": 2.003481094693182,
+      "normal_mean": 1.0806326456461248,
+      "normal_std": 5.726628939321219,
+      "threshold_high": 18.260519463609782,
+      "threshold_low": 0.0,
+      "anomaly_mean_power": 154.34421303173343
+    },
+    {
+      "appliance": "dishwasher",
+      "total_samples": 4901,
+      "anomaly_count": 98,
+      "anomaly_pct": 1.999591920016323,
+      "normal_mean": 3.5565505058214995,
+      "normal_std": 0.7866859389584809,
+      "threshold_high": 5.916608322696942,
+      "threshold_low": 1.1964926889460568,
+      "anomaly_mean_power": 177.55836590133157
+    }
+  ]
+}
