@@ -188,12 +188,23 @@ class MLService:
             return {"error": f"No anomaly model for {appliance}"}
 
         model_data = self.anomaly_models[appliance]
-        iso_forest = model_data["model"]
-        stats = model_data["stats"]
-
+        
+        # Handle different model structures
+        if isinstance(model_data, dict) and "model" in model_data:
+            iso_forest = model_data["model"]
+            stats = model_data.get("stats", {})
+        else:
+            # Model might be stored directly without wrapper
+            iso_forest = model_data
+            stats = {}
+        
+        # Get stats with defaults
+        mean = stats.get("mean", 0)
+        std = stats.get("std", 1)
+        
         # Simple Z-score check
-        z_score = abs(power - stats["mean"]) / max(stats["std"], 1)
-        is_statistical_anomaly = z_score > 3
+        z_score = abs(power - mean) / max(std, 1)
+        is_statistical_anomaly = z_score > 3 if mean > 0 else False
 
         # Isolation Forest check
         features = self.get_features(appliance)
@@ -225,9 +236,9 @@ class MLService:
             "z_score": round(z_score, 2),
             "reason": reason if is_anomaly else None,
             "stats": {
-                "mean": round(stats["mean"], 2),
-                "std": round(stats["std"], 2),
-                "threshold_high": round(stats["mean"] + 3 * stats["std"], 2),
+                "mean": round(mean, 2),
+                "std": round(std, 2),
+                "threshold_high": round(mean + 3 * std, 2),
             },
             "timestamp": datetime.now().isoformat(),
         }

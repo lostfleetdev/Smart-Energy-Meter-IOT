@@ -59,20 +59,23 @@ def stream():
     def generate():
         client_id = id(threading.current_thread())
         sse_clients.add(client_id)
-        last_idx = len(data_buffer)
+        last_seen_timestamp = None
         
         try:
             while True:
                 with lock:
-                    current_len = len(data_buffer)
-                    if current_len > last_idx:
-                        # Send new data points
-                        for i in range(last_idx, current_len):
-                            yield f"data: {json.dumps(data_buffer[i])}\n\n"
-                        last_idx = current_len
-                    elif current_len < last_idx:
-                        # Buffer wrapped
-                        last_idx = 0
+                    if data_buffer:
+                        # Find new data since last seen
+                        new_data = []
+                        for item in data_buffer:
+                            ts = item.get("timestamp")
+                            if last_seen_timestamp is None or ts > last_seen_timestamp:
+                                new_data.append(item)
+                        
+                        if new_data:
+                            last_seen_timestamp = new_data[-1].get("timestamp")
+                            for item in new_data:
+                                yield f"data: {json.dumps(item)}\n\n"
                 
                 time.sleep(0.5)
         finally:
@@ -121,12 +124,12 @@ def stats():
     """Basic statistics from buffer."""
     with lock:
         if not data_buffer:
-            return jsonify({"error": "No data"})
+            return jsonify({"error": "No data", "buffer_size": 0})
         
         powers = [d["power"] for d in data_buffer if "power" in d]
         
     if not powers:
-        return jsonify({"error": "No power data"})
+        return jsonify({"error": "No power data", "buffer_size": len(data_buffer)})
     
     return jsonify({
         "count": len(powers),
@@ -134,6 +137,25 @@ def stats():
         "max_power": round(max(powers), 2),
         "min_power": round(min(powers), 2),
         "relay": relay_state["on"],
+        "sse_clients": len(sse_clients),
+        "last_reading": data_buffer[-1] if data_buffer else None,
+    })
+
+
+@app.route("/debug")
+def debug():
+    """Debug endpoint to check system status."""
+    with lock:
+        buffer_data = list(data_buffer)[-5:]  # Last 5
+    return jsonify({
+        "mqtt_topics": {
+            "telemetry": TOPIC_TELEMETRY,
+            "relay_set": TOPIC_RELAY_SET, 
+            "relay_state": TOPIC_RELAY_STATE,
+        },
+        "buffer_size": len(data_buffer),
+        "last_readings": buffer_data,
+        "relay_state": relay_state,
         "sse_clients": len(sse_clients),
     })
 
@@ -270,33 +292,38 @@ def ml_simulate():
 # ══════════════════════════════════════════════════
 def check_anomaly(reading):
     """Check for anomaly using ML service or fallback to Z-score."""
-    power = reading.get("power", 0)
-    
-    # Try ML-based detection for generic device
-    if "fridge" in ml_service.anomaly_models:
-        result = ml_service.detect_anomaly("fridge", power)
-        if result and not result.get("error"):
-            return result.get("is_anomaly", False)
-    
-    # Fallback: Simple Z-score anomaly check
-    with lock:
-        if len(data_buffer) < 20:
+    try:
+        power = reading.get("power", 0)
+        appliance = reading.get("appliance", "fridge")
+        
+        # Try ML-based detection for the specific appliance
+        if appliance in ml_service.anomaly_models:
+            result = ml_service.detect_anomaly(appliance, power)
+            if result and not result.get("error"):
+                return result.get("is_anomaly", False)
+        
+        # Fallback: Simple Z-score anomaly check
+        with lock:
+            if len(data_buffer) < 20:
+                return False
+            
+            powers = [d["power"] for d in data_buffer if "power" in d]
+        
+        if len(powers) < 20:
             return False
         
-        powers = [d["power"] for d in data_buffer if "power" in d]
-    
-    if len(powers) < 20:
+        mean = sum(powers) / len(powers)
+        variance = sum((p - mean) ** 2 for p in powers) / len(powers)
+        std = variance ** 0.5
+        
+        if std < 1:  # Avoid division by tiny std
+            return False
+        
+        z_score = abs(power - mean) / std
+        return z_score > 3  # Flag if > 3 standard deviations
+    except Exception as e:
+        print(f"[ANOMALY] Error checking: {e}")
         return False
-    
-    mean = sum(powers) / len(powers)
-    variance = sum((p - mean) ** 2 for p in powers) / len(powers)
-    std = variance ** 0.5
-    
-    if std < 1:  # Avoid division by tiny std
-        return False
-    
-    z_score = abs(reading["power"] - mean) / std
-    return z_score > 3  # Flag if > 3 standard deviations
 
 
 # ══════════════════════════════════════════════════
@@ -323,6 +350,9 @@ def on_message(client, userdata, msg):
             with lock:
                 data_buffer.append(data)
             
+            # Log receipt
+            print(f"[MQTT] Telemetry: V={data.get('voltage')}, I={data.get('current')}, P={data.get('power')}")
+            
             # Append to CSV
             append_csv(data)
             
@@ -337,6 +367,8 @@ def on_message(client, userdata, msg):
                 
         except json.JSONDecodeError:
             print(f"[MQTT] Invalid JSON: {payload}")
+        except Exception as e:
+            print(f"[MQTT] Error processing telemetry: {e}")
     
     elif topic == TOPIC_RELAY_STATE:
         relay_state["on"] = payload == "1"
@@ -362,16 +394,30 @@ def append_csv(data):
 mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
 mqtt_client.on_connect = on_connect
 mqtt_client.on_message = on_message
+mqtt_client.reconnect_delay_set(min_delay=1, max_delay=30)
+
+
+def on_disconnect(client, userdata, disconnect_flags, reason_code, properties):
+    """Handle MQTT disconnection."""
+    print(f"[MQTT] Disconnected (rc={reason_code}), will auto-reconnect...")
+
+
+mqtt_client.on_disconnect = on_disconnect
 
 
 def mqtt_loop():
-    """MQTT network loop in background thread."""
+    """MQTT network loop in background thread with robust reconnection."""
     while True:
         try:
+            print(f"[MQTT] Connecting to {MQTT_BROKER}:{MQTT_PORT}...")
             mqtt_client.connect(MQTT_BROKER, MQTT_PORT, keepalive=60)
-            mqtt_client.loop_forever()
-        except Exception as e:
+            mqtt_client.loop_forever(retry_first_connection=True)
+        except OSError as e:
             print(f"[MQTT] Connection error: {e}, retrying in 5s...")
+            time.sleep(5)
+        except Exception as e:
+            print(f"[MQTT] Unexpected error: {e}, retrying in 5s...")
+            time.sleep(5)
             time.sleep(5)
 
 

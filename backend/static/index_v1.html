@@ -1,0 +1,2011 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Energy Monitor</title>
+    
+    <!-- Material UI 2 inspired palette + icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Roboto+Mono:wght@500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    
+    <style>
+        :root {
+            --md-primary: #0f172a;
+            --md-primary-dark: #020617;
+            --md-primary-light: #f1f5f9;
+            --md-accent: #3b82f6;
+            --md-accent-dark: #2563eb;
+
+            --md-text-primary: #0f172a;
+            --md-text-secondary: #475569;
+            --md-text-disabled: #94a3b8;
+            --md-text-hint: #94a3b8;
+
+            --md-divider: #e2e8f0;
+            --md-background: #f8fafc;
+            --md-surface: #ffffff;
+
+            --md-success: #10b981;
+            --md-warning: #f59e0b;
+            --md-error: #ef4444;
+
+            --md-shadow-1: 0 2px 8px rgba(15, 23, 42, 0.04), 0 1px 2px rgba(15, 23, 42, 0.02);
+            --md-shadow-2: 0 10px 24px rgba(15, 23, 42, 0.06), 0 4px 8px rgba(15, 23, 42, 0.03);
+            --md-shadow-3: 0 20px 40px rgba(15, 23, 42, 0.08), 0 8px 16px rgba(15, 23, 42, 0.04);
+            --md-shadow-4: 0 32px 64px rgba(15, 23, 42, 0.1), 0 12px 24px rgba(15, 23, 42, 0.05);
+        }
+        
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--md-background);
+            color: var(--md-text-primary);
+            min-height: 100dvh;
+            line-height: 1.6;
+            position: relative;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: -1;
+            background:
+                radial-gradient(circle at 10% 0%, rgba(59, 130, 246, 0.05), transparent 40%),
+                radial-gradient(circle at 90% 100%, rgba(59, 130, 246, 0.03), transparent 45%);
+        }
+
+        :focus-visible {
+            outline: 3px solid rgba(21, 101, 192, 0.35);
+            outline-offset: 2px;
+        }
+
+        .numeric {
+            font-family: 'Roboto Mono', monospace;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .skip-link {
+            position: absolute;
+            left: 16px;
+            top: -44px;
+            z-index: 200;
+            background: var(--md-primary-dark);
+            color: white;
+            padding: 10px 14px;
+            border-radius: 8px;
+            text-decoration: none;
+            transition: top 0.2s ease;
+        }
+
+        .skip-link:focus {
+            top: 12px;
+        }
+        
+        /* ══════════════════════════════════════════════════════════════
+           APP BAR - Material 2 Elevated Style
+           ══════════════════════════════════════════════════════════════ */
+        .app-bar {
+            background: var(--md-primary);
+            color: white;
+            padding: 0 16px;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: var(--md-shadow-2);
+        }
+        
+        .app-bar__icon {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.15);
+        }
+        
+        .app-bar__icon .material-icons { font-size: 24px; }
+        
+        .app-bar__title {
+            font-size: 20px;
+            font-weight: 500;
+            letter-spacing: 0.02em;
+        }
+        
+        .app-bar__spacer { flex: 1; }
+        
+        .app-bar__actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        /* Dropdown Select - MD2 Style */
+        .md-select {
+            background: rgba(255,255,255,0.15);
+            border: none;
+            border-radius: 4px;
+            padding: 8px 32px 8px 12px;
+            color: white;
+            font-family: inherit;
+            font-size: 14px;
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 4px center;
+        }
+        
+        .md-select:hover { background-color: rgba(255,255,255,0.25); }
+        .md-select:focus { outline: none; background-color: rgba(255,255,255,0.3); }
+        
+        /* Status Chip */
+        .status-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: 16px;
+            font-size: 12px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .status-chip--offline {
+            background: var(--md-error);
+        }
+        
+        .status-chip--online {
+            background: var(--md-success);
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: white;
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(0.9); }
+        }
+        
+        /* ══════════════════════════════════════════════════════════════
+           BUTTONS - Material 2 Raised & Flat
+           ══════════════════════════════════════════════════════════════ */
+        .md-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            height: 36px;
+            padding: 0 16px;
+            border: none;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 500;
+            text-transform: none;
+            letter-spacing: 0.01em;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .md-btn .material-icons { font-size: 18px; }
+        
+        .md-btn--raised {
+            background: var(--md-primary);
+            color: white;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1);
+        }
+        
+        .md-btn--raised:hover {
+            box-shadow: 0 4px 6px rgba(15, 23, 42, 0.15);
+            background: var(--md-primary-dark);
+            transform: translateY(-1px);
+        }
+        
+        .md-btn--raised:active { box-shadow: 0 1px 2px rgba(15, 23, 42, 0.1); transform: translateY(1px); }
+        
+        .md-btn--flat {
+            background: transparent;
+            color: var(--md-primary);
+        }
+        
+        .md-btn--flat:hover { background: rgba(15, 23, 42, 0.05); }
+        
+        .md-btn--accent {
+            background: var(--md-accent);
+            color: white;
+            box-shadow: 0 1px 3px rgba(59, 130, 246, 0.2);
+        }
+        
+        .md-btn--accent:hover {
+            background: var(--md-accent-dark);
+            box-shadow: 0 4px 6px rgba(59, 130, 246, 0.3);
+            transform: translateY(-1px);
+        }
+        
+        .md-btn--icon {
+            width: 40px;
+            height: 40px;
+            padding: 0;
+            border-radius: 50%;
+            background: transparent;
+            color: var(--md-text-primary);
+        }
+        
+        .md-btn--icon:hover { background: rgba(15, 23, 42, 0.05); }
+        
+        .md-btn--icon-dark {
+            color: var(--md-text-secondary);
+        }
+        
+        .md-btn--icon-dark:hover { background: rgba(0,0,0,0.08); }
+        
+        /* ══════════════════════════════════════════════════════════════
+           MAIN LAYOUT
+           ══════════════════════════════════════════════════════════════ */
+        .main-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 24px;
+        }
+        
+        /* ══════════════════════════════════════════════════════════════
+           CARDS - Material 2 Raised Cards
+           ══════════════════════════════════════════════════════════════ */
+        .md-card {
+            background: var(--md-surface);
+            border-radius: 4px;
+            box-shadow: var(--md-shadow-1);
+            overflow: hidden;
+        }
+        
+        .md-card:hover { box-shadow: var(--md-shadow-2); }
+        
+        .md-card__header {
+            padding: 16px;
+            border-bottom: 1px solid var(--md-divider);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .md-card__title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .md-card__title-icon {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            background: var(--md-primary-light);
+            color: var(--md-primary);
+        }
+        
+        .md-card__title h3 {
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--md-text-primary);
+        }
+        
+        .md-card__title span {
+            font-size: 12px;
+            color: var(--md-text-secondary);
+        }
+        
+        .md-card__content { padding: 16px; }
+        
+        .md-card__actions {
+            padding: 8px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            border-top: 1px solid var(--md-divider);
+        }
+        
+        /* ══════════════════════════════════════════════════════════════
+           METRIC TILES - Dashboard Metrics
+           ══════════════════════════════════════════════════════════════ */
+        .metrics-row {
+            grid-column: span 12;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+        }
+        
+        .metric-tile {
+            background: var(--md-surface);
+            border-radius: 4px;
+            box-shadow: var(--md-shadow-1);
+            padding: 16px;
+            border-left: 4px solid var(--md-primary);
+            transition: all 0.2s;
+        }
+        
+        .metric-tile:hover {
+            box-shadow: var(--md-shadow-2);
+            transform: translateY(-2px);
+        }
+        
+        .metric-tile__header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        
+        .metric-tile__label {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--md-text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .metric-tile__icon {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            background: var(--md-primary-light);
+            color: var(--md-primary);
+        }
+        
+        .metric-tile__icon .material-icons { font-size: 18px; }
+        
+        .metric-tile__value {
+            font-size: 36px;
+            font-weight: 300;
+            color: var(--md-text-primary);
+            line-height: 1;
+        }
+        
+        .metric-tile__unit {
+            font-size: 16px;
+            font-weight: 400;
+            color: var(--md-text-secondary);
+            margin-left: 4px;
+        }
+        
+        .metric-tile--warning { border-left-color: var(--md-warning); }
+        .metric-tile--warning .metric-tile__icon { background: #fef3c7; color: #d97706; }
+        
+        .metric-tile--success .metric-tile__icon { background: #d1fae5; color: #059669; }
+        
+        .metric-tile--error .metric-tile__icon { background: #fee2e2; color: #dc2626; }
+        .metric-tile--error .metric-tile__value { color: var(--md-error); }
+        
+        /* ══════════════════════════════════════════════════════════════
+           CHART CONTAINERS
+           ══════════════════════════════════════════════════════════════ */
+        .chart-area {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
+        
+        .chart-area--small { height: 200px; }
+        
+        /* Grid spans */
+        .col-8 { grid-column: span 8; }
+        .col-6 { grid-column: span 6; }
+        .col-4 { grid-column: span 4; }
+        .col-12 { grid-column: span 12; }
+        
+        /* ══════════════════════════════════════════════════════════════
+           SECTION HEADER
+           ══════════════════════════════════════════════════════════════ */
+        .section-header {
+            grid-column: span 12;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px 0 8px;
+        }
+        
+        .section-header h2 {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--md-text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .section-header__line {
+            flex: 1;
+            height: 1px;
+            background: var(--md-divider);
+        }
+        
+        /* ══════════════════════════════════════════════════════════════
+           DATA TABLE - MD2 Style
+           ══════════════════════════════════════════════════════════════ */
+        .md-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .md-table th {
+            text-align: left;
+            padding: 12px 16px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--md-text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-bottom: 1px solid var(--md-divider);
+        }
+        
+        .md-table td {
+            padding: 14px 16px;
+            font-size: 14px;
+            border-bottom: 1px solid rgba(15, 23, 42, 0.04);
+            color: var(--md-text-primary);
+        }
+        
+        .md-table tr:last-child td { border-bottom: none; }
+        .md-table tr:hover { background: rgba(15, 23, 42, 0.02); }
+        
+        .md-table tr.anomaly { background: #fef2f2; }
+        .md-table tr.anomaly:hover { background: #fee2e2; }
+        
+        /* Badges */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+        
+        .badge .material-icons { font-size: 14px; }
+        
+        .badge--success { background: #d1fae5; color: #059669; }
+        .badge--error { background: #fee2e2; color: #dc2626; }
+        .badge--warning { background: #fef3c7; color: #d97706; }
+        
+        /* ══════════════════════════════════════════════════════════════
+           FORM ELEMENTS - MD2 Style
+           ══════════════════════════════════════════════════════════════ */
+        .md-textfield {
+            position: relative;
+            display: inline-block;
+        }
+        
+        .md-textfield input {
+            height: 48px;
+            padding: 12px 16px;
+            border: none;
+            border-bottom: 2px solid var(--md-divider);
+            background: transparent;
+            font-family: inherit;
+            font-size: 16px;
+            color: var(--md-text-primary);
+            width: 140px;
+            transition: border-color 0.2s;
+        }
+        
+        .md-textfield input:focus {
+            outline: none;
+            border-bottom-color: var(--md-primary);
+        }
+        
+        .md-textfield__suffix {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--md-text-secondary);
+            font-size: 14px;
+        }
+        
+        /* Switch */
+        .md-switch {
+            position: relative;
+            width: 36px;
+            height: 20px;
+            display: inline-block;
+        }
+        
+        .md-switch input { opacity: 0; width: 0; height: 0; }
+        
+        .md-switch__track {
+            position: absolute;
+            inset: 3px 0;
+            background: rgba(0,0,0,0.26);
+            border-radius: 7px;
+            transition: background 0.2s;
+        }
+        
+        .md-switch__thumb {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            top: 0;
+            left: 0;
+            background: #FAFAFA;
+            border-radius: 50%;
+            box-shadow: var(--md-shadow-1);
+            transition: transform 0.2s, background 0.2s;
+        }
+        
+        .md-switch input:checked + .md-switch__track { background: rgba(25,118,210,0.5); }
+        .md-switch input:checked ~ .md-switch__thumb {
+            transform: translateX(16px);
+            background: var(--md-primary);
+        }
+        
+        /* ══════════════════════════════════════════════════════════════
+           RESULT BANNERS
+           ══════════════════════════════════════════════════════════════ */
+        .result-banner {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 16px;
+            border-radius: 4px;
+            margin-top: 16px;
+        }
+        
+        .result-banner .material-icons { font-size: 24px; }
+        
+        .result-banner--success { background: #E8F5E9; color: #388E3C; }
+        .result-banner--error { background: #FFEBEE; color: #D32F2F; }
+        
+        .result-banner__text strong { display: block; margin-bottom: 4px; }
+        .result-banner__text span { font-size: 13px; opacity: 0.9; }
+        
+        /* ══════════════════════════════════════════════════════════════
+           CONTROL ROW
+           ══════════════════════════════════════════════════════════════ */
+        .control-row {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+        
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .control-label {
+            font-size: 14px;
+            color: var(--md-text-secondary);
+        }
+        
+        /* ══════════════════════════════════════════════════════════════
+           LOADING & EMPTY STATES
+           ══════════════════════════════════════════════════════════════ */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            color: var(--md-text-secondary);
+        }
+        
+        .spinner {
+            width: 24px;
+            height: 24px;
+            border: 3px solid var(--md-divider);
+            border-top-color: var(--md-primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 12px;
+        }
+        
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: var(--md-text-secondary);
+        }
+        
+        .empty-state .material-icons {
+            font-size: 48px;
+            margin-bottom: 12px;
+            opacity: 0.5;
+        }
+
+        /* Refresh layer: modernized MD2 with nostalgic Google dashboard tone */
+        .app-bar {
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            height: 76px;
+            padding: 0 20px;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+            box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06);
+            color: var(--md-text-primary);
+        }
+
+        .app-bar__icon {
+            background: linear-gradient(145deg, #E8F0FE 0%, #F1F5F9 100%);
+            color: #1A73E8;
+            border-radius: 12px;
+        }
+
+        .app-bar__brand {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+
+        .app-bar__title {
+            font-size: 22px;
+            font-weight: 600;
+            line-height: 1.1;
+            letter-spacing: -0.02em;
+        }
+
+        .app-bar__subtitle {
+            font-size: 13px;
+            color: var(--md-text-secondary);
+            letter-spacing: 0.01em;
+        }
+
+        .app-bar__actions {
+            gap: 10px;
+        }
+
+        .toolbar-field {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: #F8FAFF;
+            border: 1px solid #DDE7F5;
+            border-radius: 999px;
+            padding: 4px 8px 4px 12px;
+        }
+
+        .toolbar-field__label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #475569;
+        }
+
+        .md-select {
+            min-width: 160px;
+            background: #ffffff;
+            color: var(--md-text-primary);
+            border-radius: 999px;
+            border: 1px solid #DDE7F5;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='%23475569'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+            transition: all 0.2s ease;
+        }
+
+        .md-select:hover { border-color: #B9C9E8; }
+        .md-select:focus { outline: none; border-color: #1A73E8; box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.18); }
+
+        .relay-toggle-group {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: 999px;
+            border: 1px solid #DDE7F5;
+            background: #F8FAFF;
+            min-height: 42px;
+        }
+
+        .relay-toggle-group .material-icons {
+            font-size: 18px;
+            color: #1A73E8;
+        }
+
+        .relay-toggle-group__label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #475569;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+        }
+
+        .md-switch--large {
+            width: 44px;
+            height: 24px;
+        }
+
+        .md-switch--large .md-switch__track {
+            inset: 4px 0;
+            border-radius: 999px;
+        }
+
+        .md-switch--large .md-switch__thumb {
+            width: 24px;
+            height: 24px;
+        }
+
+        .md-switch--large input:checked ~ .md-switch__thumb {
+            transform: translateX(20px);
+        }
+
+        .relay-status {
+            font-size: 12px;
+            font-weight: 700;
+            min-width: 34px;
+            text-align: center;
+            color: var(--md-text-secondary);
+        }
+
+        .status-chip {
+            text-transform: none;
+            font-size: 12px;
+            padding: 7px 12px;
+            border-radius: 999px;
+            letter-spacing: 0.02em;
+        }
+
+        .stream-btn {
+            min-width: 122px;
+            border-radius: 999px;
+            background: #1A73E8;
+            box-shadow: 0 8px 18px rgba(26, 115, 232, 0.24);
+        }
+
+        .stream-btn--live {
+            background: #0F9D58;
+            box-shadow: 0 8px 18px rgba(15, 157, 88, 0.24);
+        }
+
+        .md-btn {
+            text-transform: none;
+            letter-spacing: 0.01em;
+            border-radius: 12px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+        }
+
+        .md-btn:hover { transform: translateY(-1px); }
+        .md-btn:active { transform: translateY(0) scale(0.98); }
+
+        .main-container {
+            max-width: 1320px;
+            padding: 28px 24px 48px;
+        }
+
+        .grid {
+            gap: 20px;
+        }
+
+        .overview-hero {
+            grid-column: span 12;
+            border-radius: 22px;
+            border: 1px solid #DFE7F5;
+            background:
+                radial-gradient(circle at 90% 20%, rgba(66, 133, 244, 0.13), transparent 45%),
+                linear-gradient(180deg, #ffffff 0%, #F7FAFF 100%);
+            padding: 30px;
+            box-shadow: 0 16px 28px rgba(15, 23, 42, 0.05);
+        }
+
+        .overview-hero h2 {
+            font-size: clamp(2rem, 4.2vw, 3rem);
+            line-height: 1.1;
+            letter-spacing: -0.03em;
+            max-width: 28ch;
+            color: #0F172A;
+            text-wrap: balance;
+        }
+
+        .overview-hero p {
+            margin-top: 14px;
+            max-width: 68ch;
+            font-size: 15px;
+            color: #475569;
+            text-wrap: pretty;
+        }
+
+        .overview-hero__actions {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .metrics-row {
+            gap: 16px;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        }
+
+        .metric-tile {
+            border-radius: 18px;
+            border: 1px solid rgba(15, 23, 42, 0.08);
+            background: #ffffff;
+            min-height: 142px;
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+            transition: transform 0.25s ease, box-shadow 0.25s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .metric-tile::before {
+            display: none;
+        }
+
+        .metric-tile:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 20px rgba(15, 23, 42, 0.08);
+        }
+
+        .metric-tile__label {
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            font-size: 11px;
+            font-weight: 600;
+            color: #64748B;
+        }
+
+        .metric-tile__value {
+            font-size: 38px;
+            font-weight: 500;
+            letter-spacing: -0.03em;
+        }
+
+        .metric-tile--warning {
+            box-shadow: inset 0 3px 0 #F59E0B, 0 4px 12px rgba(15, 23, 42, 0.04);
+        }
+
+        .metric-tile--success {
+            box-shadow: inset 0 3px 0 #10B981, 0 4px 12px rgba(15, 23, 42, 0.04);
+        }
+
+        .metric-tile--error {
+            background: #FFF7F7;
+            border-color: rgba(239, 68, 68, 0.35);
+            box-shadow: inset 0 3px 0 #EF4444, 0 4px 12px rgba(15, 23, 42, 0.04);
+        }
+
+        .md-card {
+            border-radius: 18px;
+            border: 1px solid rgba(15, 23, 42, 0.08);
+            box-shadow: 0 6px 14px rgba(15, 23, 42, 0.05);
+            transition: box-shadow 0.25s ease, transform 0.25s ease;
+            background: #FFFFFF;
+        }
+
+        .md-card:hover {
+            box-shadow: 0 14px 22px rgba(15, 23, 42, 0.08);
+            transform: translateY(-2px);
+        }
+
+        .md-card__header,
+        .md-card__content {
+            padding: 18px;
+        }
+
+        .md-card__content--table {
+            padding: 0;
+            max-height: 420px;
+            overflow-y: auto;
+        }
+
+        .md-card__title h3 {
+            font-size: 17px;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+        }
+
+        .md-card__title span {
+            font-size: 13px;
+            color: #64748B;
+        }
+
+        .md-card__title-icon {
+            border-radius: 12px;
+            width: 38px;
+            height: 38px;
+        }
+
+        .md-card__title-icon--ml {
+            background: #E3F2FD;
+            color: #1565C0;
+        }
+
+        .md-card__title-icon--anomaly {
+            background: #FFEBEE;
+            color: #C62828;
+        }
+
+        .md-card__title-icon--history {
+            background: #ECEFF1;
+            color: #546E7A;
+        }
+
+        .chart-area--small {
+            height: 280px;
+        }
+
+        .section-header {
+            padding-top: 6px;
+        }
+
+        .section-header h2 {
+            font-size: 15px;
+            text-transform: none;
+            letter-spacing: 0.02em;
+            font-weight: 600;
+            color: #334155;
+        }
+
+        .anomaly-toolbar {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
+        }
+
+        .md-textfield input {
+            border-radius: 12px;
+            border: 1px solid #DDE7F5;
+            border-bottom-width: 1px;
+            background: #F8FAFF;
+            width: 220px;
+            height: 44px;
+            padding-right: 34px;
+        }
+
+        .md-textfield input:focus {
+            border-color: #1A73E8;
+            box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.16);
+        }
+
+        .anomaly-summary {
+            margin-top: 12px;
+            font-size: 12px;
+            color: #64748B;
+            letter-spacing: 0.01em;
+        }
+
+        .anomaly-legend {
+            margin-top: 10px;
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            font-size: 12px;
+            color: #64748B;
+        }
+
+        .anomaly-legend__item {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .anomaly-legend__dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .anomaly-legend__dot--normal { background: #2E7D32; }
+        .anomaly-legend__dot--anomaly { background: #C62828; }
+        .anomaly-legend__dot--bound { background: #1565C0; border-radius: 3px; }
+
+        .prediction-stack {
+            display: grid;
+            gap: 12px;
+        }
+
+        .prediction-item {
+            border-radius: 12px;
+            border: 1px solid rgba(15, 23, 42, 0.08);
+            padding: 16px;
+            background: #ffffff;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .prediction-item:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 18px rgba(15, 23, 42, 0.08);
+        }
+
+        .prediction-item--success {
+            background: linear-gradient(180deg, #F0FDF4 0%, #ECFDF5 100%);
+            border-color: #BBF7D0;
+        }
+
+        .prediction-item--warning {
+            background: linear-gradient(180deg, #FFFBEB 0%, #FEFCE8 100%);
+            border-color: #FDE68A;
+        }
+
+        .prediction-item--neutral {
+            background: linear-gradient(180deg, #F8FAFC 0%, #F1F5F9 100%);
+            border-color: #CBD5E1;
+        }
+
+        .prediction-item__label {
+            font-size: 12px;
+            color: #64748B;
+            letter-spacing: 0.03em;
+        }
+
+        .prediction-item__value {
+            margin: 8px 0 6px;
+            font-size: 30px;
+            line-height: 1;
+            color: var(--md-text-primary);
+        }
+
+        .prediction-item__value small {
+            font-size: 14px;
+            color: var(--md-text-secondary);
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .prediction-item__meta {
+            font-size: 12px;
+            color: #64748B;
+        }
+
+        .md-table tr:hover {
+            background: rgba(26, 115, 232, 0.06);
+        }
+
+        .md-table tr.anomaly {
+            background: #FFF5F5;
+        }
+
+        .md-table tr.anomaly:hover {
+            background: #FFE8E8;
+        }
+
+        .control-row {
+            gap: 12px;
+        }
+
+        .sim-status {
+            font-size: 13px;
+            color: var(--md-success);
+            min-width: 100px;
+            text-align: right;
+        }
+
+        .model-info-panel {
+            margin-top: 16px;
+            border-top: 1px solid var(--md-divider);
+            padding-top: 16px;
+            display: none;
+        }
+
+        .model-info-panel--open {
+            display: block;
+        }
+
+        .model-info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+        }
+
+        .model-info-card {
+            border-radius: 12px;
+            padding: 12px;
+            background: #F7FAFD;
+            border: 1px solid var(--md-divider);
+        }
+
+        .model-info-card h4 {
+            margin-bottom: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--md-text-secondary);
+            text-transform: none;
+            letter-spacing: 0.02em;
+        }
+
+        .mini-list {
+            list-style: none;
+            display: grid;
+            gap: 6px;
+        }
+
+        .mini-list li {
+            font-size: 14px;
+            color: var(--md-text-primary);
+        }
+
+        .col-7 { grid-column: span 7; }
+        .col-5 { grid-column: span 5; }
+
+        @media (max-width: 1100px) {
+            .col-8, .col-7, .col-6, .col-5, .col-4 { grid-column: span 12; }
+            .app-bar {
+                height: auto;
+                min-height: 72px;
+                flex-wrap: wrap;
+                padding: 10px 14px;
+            }
+            .app-bar__actions {
+                width: 100%;
+                flex-wrap: wrap;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .app-bar__subtitle {
+                display: none;
+            }
+            .toolbar-field {
+                flex: 1;
+                justify-content: space-between;
+                min-width: 100%;
+            }
+            .md-select {
+                min-width: 130px;
+                width: 100%;
+            }
+            .overview-hero {
+                padding: 22px;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .main-container { padding: 16px 12px 32px; }
+            .grid { gap: 14px; }
+            .metrics-row { grid-template-columns: repeat(2, 1fr); }
+            .metric-tile__value { font-size: 30px; }
+            .stream-btn { min-width: 108px; }
+            .relay-toggle-group { width: 100%; justify-content: center; }
+        }
+    </style>
+</head>
+<body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <header class="app-bar">
+        <div class="app-bar__icon">
+            <span class="material-icons">flash_on</span>
+        </div>
+        <div class="app-bar__brand">
+            <h1 class="app-bar__title">Smart Energy Monitor</h1>
+            <p class="app-bar__subtitle">Google-era clarity, upgraded for live ML telemetry</p>
+        </div>
+        
+        <div class="app-bar__spacer"></div>
+        
+        <div class="app-bar__actions">
+            <label class="toolbar-field">
+                <span class="toolbar-field__label">Device</span>
+                <select class="md-select" id="deviceSelect" onchange="changeDevice()">
+                    <option value="fridge">Fridge</option>
+                    <option value="ac_1">AC Unit 1</option>
+                    <option value="ac_2">AC Unit 2</option>
+                    <option value="boiler">Boiler</option>
+                    <option value="washing_machine">Washing Machine</option>
+                    <option value="dishwasher">Dishwasher</option>
+                </select>
+            </label>
+
+            <div class="relay-toggle-group" aria-label="Relay control">
+                <span class="material-icons">power_settings_new</span>
+                <span class="relay-toggle-group__label">Relay</span>
+                <label class="md-switch md-switch--large">
+                    <input type="checkbox" id="relaySwitch" onchange="toggleRelay()">
+                    <span class="md-switch__track"></span>
+                    <span class="md-switch__thumb"></span>
+                </label>
+                <span id="relayStatus" class="relay-status">OFF</span>
+            </div>
+
+            <button class="md-btn md-btn--raised stream-btn" id="streamBtn" onclick="toggleStream()" title="Connect/Disconnect stream">
+                <span class="material-icons" id="streamIcon">play_arrow</span>
+                <span id="streamLabel">Go live</span>
+            </button>
+
+            <div class="status-chip status-chip--offline" id="statusChip">
+                <span class="status-dot"></span>
+                <span id="statusText">Offline</span>
+            </div>
+        </div>
+    </header>
+    
+    <main class="main-container" id="main-content">
+        <div class="grid">
+            <section class="overview-hero">
+                <h2>Monitor appliance behavior in real time with confidence-driven anomaly checks.</h2>
+                <p>Core controls now sit in the top bar where operators need them, while analysis cards are grouped by workflow: trend first, anomaly validation second, and model context last.</p>
+                <div class="overview-hero__actions">
+                    <button class="md-btn md-btn--accent" onclick="toggleStream()">
+                        <span class="material-icons">sensors</span>
+                        Toggle live stream
+                    </button>
+                    <button class="md-btn md-btn--flat" onclick="document.getElementById('anomalyPower').focus()">
+                        <span class="material-icons">search</span>
+                        Jump to anomaly check
+                    </button>
+                </div>
+            </section>
+             
+            <div class="metrics-row">
+                <div class="metric-tile">
+                    <div class="metric-tile__header">
+                        <span class="metric-tile__label">Voltage</span>
+                        <div class="metric-tile__icon">
+                            <span class="material-icons">bolt</span>
+                        </div>
+                    </div>
+                    <div>
+                        <span class="metric-tile__value numeric" id="voltage">--</span>
+                        <span class="metric-tile__unit">V</span>
+                    </div>
+                </div>
+                
+                <div class="metric-tile">
+                    <div class="metric-tile__header">
+                        <span class="metric-tile__label">Current</span>
+                        <div class="metric-tile__icon">
+                            <span class="material-icons">waves</span>
+                        </div>
+                    </div>
+                    <div>
+                        <span class="metric-tile__value numeric" id="current">--</span>
+                        <span class="metric-tile__unit">A</span>
+                    </div>
+                </div>
+                
+                <div class="metric-tile metric-tile--warning" id="powerTile">
+                    <div class="metric-tile__header">
+                        <span class="metric-tile__label">Power</span>
+                        <div class="metric-tile__icon">
+                            <span class="material-icons">speed</span>
+                        </div>
+                    </div>
+                    <div>
+                        <span class="metric-tile__value numeric" id="power">--</span>
+                        <span class="metric-tile__unit">W</span>
+                    </div>
+                </div>
+                
+                <div class="metric-tile metric-tile--success">
+                    <div class="metric-tile__header">
+                        <span class="metric-tile__label">Energy</span>
+                        <div class="metric-tile__icon">
+                            <span class="material-icons">battery_charging_full</span>
+                        </div>
+                    </div>
+                    <div>
+                        <span class="metric-tile__value numeric" id="energy">--</span>
+                        <span class="metric-tile__unit">kWh</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="md-card col-8">
+                <div class="md-card__header">
+                    <div class="md-card__title">
+                        <div class="md-card__title-icon">
+                            <span class="material-icons">show_chart</span>
+                        </div>
+                        <div>
+                            <h3>Real-time power</h3>
+                            <span>Last 100 readings</span>
+                        </div>
+                    </div>
+                    <button class="md-btn md-btn--icon md-btn--icon-dark" onclick="clearChartData()" title="Clear">
+                        <span class="material-icons">delete</span>
+                    </button>
+                </div>
+                <div class="md-card__content">
+                    <div class="chart-area">
+                        <canvas id="powerChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="md-card col-4">
+                <div class="md-card__header">
+                    <div class="md-card__title">
+                        <div class="md-card__title-icon md-card__title-icon--ml">
+                            <span class="material-icons">psychology</span>
+                        </div>
+                        <div>
+                            <h3>ML predictions</h3>
+                            <span>Next hour forecast</span>
+                        </div>
+                    </div>
+                    <button class="md-btn md-btn--icon md-btn--icon-dark" onclick="loadPredictions()" title="Refresh">
+                        <span class="material-icons">refresh</span>
+                    </button>
+                </div>
+                <div class="md-card__content" id="predictionPanel">
+                    <div class="loading"><div class="spinner"></div>Loading...</div>
+                </div>
+            </div>
+            
+            <div class="section-header col-12">
+                <h2>Anomaly analysis and reading context</h2>
+                <div class="section-header__line"></div>
+            </div>
+            
+            <div class="md-card col-7">
+                <div class="md-card__header">
+                    <div class="md-card__title">
+                        <div class="md-card__title-icon md-card__title-icon--anomaly">
+                            <span class="material-icons">warning</span>
+                        </div>
+                        <div>
+                            <h3>Anomaly detection</h3>
+                            <span>Dynamic ±3σ envelope over recent device history</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="md-card__content">
+                    <div class="anomaly-toolbar">
+                        <div class="md-textfield">
+                            <input type="number" id="anomalyPower" placeholder="Power value">
+                            <span class="md-textfield__suffix">W</span>
+                        </div>
+                        <button class="md-btn md-btn--raised" onclick="checkAnomaly()">
+                            <span class="material-icons">search</span>
+                            Check
+                        </button>
+                    </div>
+                    <div id="anomalyResult"></div>
+                    <div class="chart-area chart-area--small">
+                        <canvas id="anomalyChart"></canvas>
+                    </div>
+                    <div class="anomaly-legend">
+                        <span class="anomaly-legend__item"><span class="anomaly-legend__dot anomaly-legend__dot--normal"></span>Normal points</span>
+                        <span class="anomaly-legend__item"><span class="anomaly-legend__dot anomaly-legend__dot--anomaly"></span>Anomalies</span>
+                        <span class="anomaly-legend__item"><span class="anomaly-legend__dot anomaly-legend__dot--bound"></span>Normal bounds</span>
+                    </div>
+                    <p class="anomaly-summary" id="anomalySummary">Awaiting historical data to calibrate baseline.</p>
+                </div>
+            </div>
+            
+            <div class="md-card col-5">
+                <div class="md-card__header">
+                    <div class="md-card__title">
+                        <div class="md-card__title-icon md-card__title-icon--history">
+                            <span class="material-icons">history</span>
+                        </div>
+                        <div>
+                            <h3>Recent readings</h3>
+                            <span>Last 15 measurements</span>
+                        </div>
+                    </div>
+                    <button class="md-btn md-btn--icon md-btn--icon-dark" onclick="loadHistory()" title="Refresh">
+                        <span class="material-icons">refresh</span>
+                    </button>
+                </div>
+                <div class="md-card__content md-card__content--table">
+                    <table class="md-table">
+                        <thead>
+                            <tr><th>Time</th><th>Power</th><th>Voltage</th><th>Status</th></tr>
+                        </thead>
+                        <tbody id="historyBody">
+                            <tr><td colspan="4" class="loading"><div class="spinner"></div>Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="md-card col-12">
+                <div class="md-card__header">
+                    <div class="md-card__title">
+                        <div class="md-card__title-icon">
+                            <span class="material-icons">tune</span>
+                        </div>
+                        <div>
+                            <h3>Operations and model tools</h3>
+                            <span>Inject test samples and inspect active ML models</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="md-card__content">
+                    <div class="control-row">
+                        <button class="md-btn md-btn--raised" onclick="simulateReadings()">
+                            <span class="material-icons">science</span>
+                            Add Test Data
+                        </button>
+                        <span id="simStatus" class="sim-status"></span>
+                        
+                        <button class="md-btn md-btn--flat" id="modelInfoBtn" onclick="showModelInfo()">
+                            <span class="material-icons">info</span>
+                            Show model info
+                        </button>
+                    </div>
+                    <div id="modelInfoPanel" class="model-info-panel"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <!-- ════════════════════════════════════════════════════════════════
+         JAVASCRIPT
+         ════════════════════════════════════════════════════════════════ -->
+    <script>
+        // State
+        let eventSource = null;
+        let streaming = false;
+        let selectedDevice = 'fridge';
+        const MAX_POINTS = 100;
+        
+        const liveData = { timestamps: [], power: [] };
+        let powerChart, anomalyChart;
+        
+        // Device Selection
+        function changeDevice() {
+            selectedDevice = document.getElementById('deviceSelect').value;
+            clearChartData();
+            loadPredictions();
+            loadHistory();
+            loadAnomalyChart();
+        }
+        
+        // Streaming
+        function toggleStream() {
+            const btn = document.getElementById('streamBtn');
+            const icon = document.getElementById('streamIcon');
+            const label = document.getElementById('streamLabel');
+            const chip = document.getElementById('statusChip');
+            const statusText = document.getElementById('statusText');
+            
+            if (streaming) {
+                if (eventSource) { eventSource.close(); eventSource = null; }
+                streaming = false;
+                icon.textContent = 'play_arrow';
+                label.textContent = 'Go live';
+                btn.classList.remove('stream-btn--live');
+                chip.className = 'status-chip status-chip--offline';
+                statusText.textContent = 'Offline';
+            } else {
+                eventSource = new EventSource('/stream');
+                
+                eventSource.onopen = () => {
+                    streaming = true;
+                    icon.textContent = 'stop';
+                    label.textContent = 'Stop stream';
+                    btn.classList.add('stream-btn--live');
+                    chip.className = 'status-chip status-chip--online';
+                    statusText.textContent = 'Live';
+                    console.log('[SSE] Connected');
+                };
+                
+                eventSource.onmessage = (e) => {
+                    console.log('[SSE] Data:', e.data);
+                    const data = JSON.parse(e.data);
+                    updateMetrics(data);
+                    updatePowerChart(data);
+                    // Also update relay state if included
+                    if (data.relay !== undefined) {
+                        document.getElementById('relaySwitch').checked = data.relay;
+                        document.getElementById('relayStatus').textContent = data.relay ? 'ON' : 'OFF';
+                        document.getElementById('relayStatus').style.color = data.relay ? 'var(--md-success)' : '';
+                    }
+                };
+                
+                eventSource.onerror = (e) => {
+                    console.log('[SSE] Error:', e);
+                    chip.className = 'status-chip status-chip--offline';
+                    statusText.textContent = 'Error';
+                    btn.classList.remove('stream-btn--live');
+                    label.textContent = 'Retry';
+                };
+            }
+        }
+        
+        // Metrics
+        function updateMetrics(data) {
+            document.getElementById('voltage').textContent = data.voltage?.toFixed(1) ?? '--';
+            document.getElementById('current').textContent = data.current?.toFixed(2) ?? '--';
+            document.getElementById('power').textContent = data.power?.toFixed(1) ?? '--';
+            document.getElementById('energy').textContent = data.energy?.toFixed(4) ?? '--';
+            
+            const tile = document.getElementById('powerTile');
+            if (data.anomaly) {
+                tile.className = 'metric-tile metric-tile--error';
+            } else {
+                tile.className = 'metric-tile metric-tile--warning';
+            }
+        }
+        
+        // Charts
+        function initCharts() {
+            const rootStyles = getComputedStyle(document.documentElement);
+            const axisColor = rootStyles.getPropertyValue('--md-text-secondary').trim() || '#4b5b70';
+            const gridColor = rootStyles.getPropertyValue('--md-divider').trim() || '#dbe3ec';
+
+            const cfg = {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 150 },
+                plugins: { legend: { display: false } }
+            };
+            
+            powerChart = new Chart(document.getElementById('powerChart'), {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Power (W)',
+                        data: [],
+                        borderColor: '#1565C0',
+                        backgroundColor: 'rgba(21, 101, 192, 0.12)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 0,
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    ...cfg,
+                    scales: {
+                        x: { display: true, grid: { display: false }, ticks: { maxTicksLimit: 8, color: axisColor } },
+                        y: { beginAtZero: true, grid: { color: gridColor }, ticks: { color: axisColor } }
+                    }
+                }
+            });
+            
+            anomalyChart = new Chart(document.getElementById('anomalyChart'), {
+                type: 'scatter',
+                data: {
+                    datasets: [
+                        {
+                            type: 'line',
+                            label: 'Power trend',
+                            data: [],
+                            borderColor: '#1A73E8',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            tension: 0.2
+                        },
+                        {
+                            label: 'Normal',
+                            data: [],
+                            backgroundColor: 'rgba(46,125,50,0.72)',
+                            borderColor: '#2E7D32',
+                            pointRadius: 4
+                        },
+                        {
+                            label: 'Anomaly',
+                            data: [],
+                            backgroundColor: 'rgba(198,40,40,0.9)',
+                            borderColor: '#C62828',
+                            pointRadius: 6
+                        },
+                        {
+                            type: 'line',
+                            label: 'Upper bound (3σ)',
+                            data: [],
+                            borderColor: 'rgba(21,101,192,0.75)',
+                            borderDash: [6, 4],
+                            borderWidth: 1.5,
+                            pointRadius: 0
+                        },
+                        {
+                            type: 'line',
+                            label: 'Lower bound (3σ)',
+                            data: [],
+                            borderColor: 'rgba(21,101,192,0.5)',
+                            borderDash: [6, 4],
+                            borderWidth: 1.5,
+                            pointRadius: 0
+                        },
+                        {
+                            label: 'Checked reading',
+                            data: [],
+                            backgroundColor: '#F59E0B',
+                            borderColor: '#B45309',
+                            pointStyle: 'triangle',
+                            pointRadius: 7
+                        }
+                    ]
+                },
+                options: {
+                    ...cfg,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                usePointStyle: true,
+                                boxWidth: 8
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { title: { display: true, text: 'Reading index', color: axisColor }, grid: { color: gridColor } },
+                        y: { title: { display: true, text: 'Power (W)', color: axisColor }, grid: { color: gridColor } }
+                    }
+                }
+            });
+        }
+        
+        function updatePowerChart(data) {
+            const time = new Date(data.timestamp || Date.now()).toLocaleTimeString();
+            liveData.timestamps.push(time);
+            liveData.power.push(data.power || 0);
+            
+            if (liveData.timestamps.length > MAX_POINTS) {
+                liveData.timestamps.shift();
+                liveData.power.shift();
+            }
+            
+            powerChart.data.labels = liveData.timestamps;
+            powerChart.data.datasets[0].data = liveData.power;
+            powerChart.update('none');
+        }
+        
+        function clearChartData() {
+            liveData.timestamps = [];
+            liveData.power = [];
+            powerChart.data.labels = [];
+            powerChart.data.datasets[0].data = [];
+            powerChart.update();
+        }
+        
+        function renderPredictionItem({ label, value, unit, tone = 'neutral', meta = '' }) {
+            const unitHtml = unit ? `<small>${unit}</small>` : '';
+            return `<article class="prediction-item prediction-item--${tone}">
+                <strong class="prediction-item__label">${label}</strong>
+                <div class="prediction-item__value numeric">${value}${unitHtml}</div>
+                <p class="prediction-item__meta">${meta}</p>
+            </article>`;
+        }
+
+        // ML Predictions
+        async function loadPredictions() {
+            const panel = document.getElementById('predictionPanel');
+            panel.innerHTML = '<div class="loading"><div class="spinner"></div>Fetching forecast...</div>';
+            
+            try {
+                const [powerRes, onoffRes, historyRes] = await Promise.all([
+                    fetch(`/ml/predict/${selectedDevice}`),
+                    fetch(`/ml/predict-onoff/${selectedDevice}`),
+                    fetch(`/ml/history/${selectedDevice}`)
+                ]);
+                
+                const power = await powerRes.json();
+                const onoff = await onoffRes.json();
+                const history = await historyRes.json();
+                
+                const cards = [];
+
+                if (power.error) {
+                    cards.push(renderPredictionItem({
+                        label: 'Power forecast',
+                        value: '--',
+                        unit: 'W',
+                        tone: 'warning',
+                        meta: 'Needs more history to estimate reliably'
+                    }));
+                } else {
+                    cards.push(renderPredictionItem({
+                        label: 'Power forecast',
+                        value: power.predicted_power,
+                        unit: 'W',
+                        tone: 'success',
+                        meta: 'Estimated usage for the next hour'
+                    }));
+                }
+                
+                if (!onoff.error) {
+                    const status = onoff.will_be_on ? 'Likely active in next hour' : 'Likely idle in next hour';
+                    cards.push(renderPredictionItem({
+                        label: 'Activity confidence',
+                        value: onoff.confidence,
+                        unit: '%',
+                        tone: onoff.will_be_on ? 'success' : 'warning',
+                        meta: status
+                    }));
+                }
+                
+                cards.push(renderPredictionItem({
+                    label: 'Data points',
+                    value: history.count,
+                    unit: 'readings',
+                    tone: 'neutral',
+                    meta: 'Training records available for this device'
+                }));
+
+                panel.innerHTML = `<div class="prediction-stack">${cards.join('')}</div>`;
+            } catch (e) {
+                panel.innerHTML = '<div class="empty-state"><span class="material-icons">error</span><p>Could not load predictions.</p></div>';
+                console.error('Prediction load failed:', e);
+            }
+        }
+        
+        function computeStats(values) {
+            if (!values.length) {
+                return { mean: 0, std: 0 };
+            }
+            const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
+            const variance = values.reduce((sum, value) => sum + Math.pow(value - mean, 2), 0) / values.length;
+            return { mean, std: Math.sqrt(variance) };
+        }
+
+        // Anomaly Check
+        async function checkAnomaly() {
+            const power = parseFloat(document.getElementById('anomalyPower').value);
+            const div = document.getElementById('anomalyResult');
+            
+            if (isNaN(power)) {
+                div.innerHTML = '<div class="result-banner result-banner--error"><span class="material-icons">error</span><div class="result-banner__text"><strong>Invalid input</strong><span>Enter a valid power value.</span></div></div>';
+                return;
+            }
+            
+            try {
+                const res = await fetch(`/ml/anomaly/${selectedDevice}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ power })
+                });
+                const data = await res.json();
+                
+                if (data.is_anomaly) {
+                    div.innerHTML = `<div class="result-banner result-banner--error">
+                        <span class="material-icons">warning</span>
+                        <div class="result-banner__text"><strong>Anomaly detected</strong>
+                        <span>Z-score: ${data.z_score} · ${data.reason?.join(', ') || 'Unusual'}</span></div>
+                    </div>`;
+                } else {
+                    div.innerHTML = `<div class="result-banner result-banner--success">
+                        <span class="material-icons">check_circle</span>
+                        <div class="result-banner__text"><strong>Normal reading</strong>
+                        <span>Z-score: ${data.z_score} · Mean: ${data.stats?.mean || '--'} W</span></div>
+                    </div>`;
+                }
+                loadAnomalyChart(power);
+            } catch (e) {
+                div.innerHTML = '<div class="result-banner result-banner--error"><span class="material-icons">error</span><div class="result-banner__text"><strong>Request failed</strong><span>Could not check this reading right now.</span></div></div>';
+                console.error('Anomaly check failed:', e);
+            }
+        }
+        
+        async function loadAnomalyChart(candidatePower = null) {
+            try {
+                const res = await fetch(`/ml/history/${selectedDevice}`);
+                const data = await res.json();
+                
+                const readings = data.readings || [];
+                const summary = document.getElementById('anomalySummary');
+                const allPoints = readings.map((r, i) => ({ x: i + 1, y: Number(r.power) || 0 }));
+
+                if (!allPoints.length) {
+                    anomalyChart.data.datasets.forEach((dataset) => { dataset.data = []; });
+                    anomalyChart.options.scales.y.suggestedMax = undefined;
+                    anomalyChart.update();
+                    summary.textContent = 'Awaiting historical data to calibrate baseline.';
+                    return;
+                }
+
+                const values = allPoints.map((point) => point.y);
+                const { mean, std } = computeStats(values);
+                const sigma = std || 1;
+                const upperBound = mean + 3 * sigma;
+                const lowerBound = Math.max(0, mean - 3 * sigma);
+
+                const normal = [];
+                const anomalies = [];
+                allPoints.forEach((point) => {
+                    const zScore = (point.y - mean) / sigma;
+                    if (Math.abs(zScore) >= 3) {
+                        anomalies.push(point);
+                    } else {
+                        normal.push(point);
+                    }
+                });
+
+                const boundLineHigh = allPoints.map((point) => ({ x: point.x, y: upperBound }));
+                const boundLineLow = allPoints.map((point) => ({ x: point.x, y: lowerBound }));
+
+                anomalyChart.data.datasets[0].data = allPoints;
+                anomalyChart.data.datasets[1].data = normal;
+                anomalyChart.data.datasets[2].data = anomalies;
+                anomalyChart.data.datasets[3].data = boundLineHigh;
+                anomalyChart.data.datasets[4].data = boundLineLow;
+                anomalyChart.data.datasets[5].data = Number.isFinite(candidatePower)
+                    ? [{ x: allPoints.length + 1, y: candidatePower }]
+                    : [];
+
+                anomalyChart.options.scales.y.suggestedMax = Math.max(...values, upperBound) * 1.15;
+                anomalyChart.update();
+
+                summary.textContent = `${values.length} readings · mean ${mean.toFixed(1)}W · std ${std.toFixed(1)}W · ${anomalies.length} anomalies`;
+            } catch (e) {
+                document.getElementById('anomalySummary').textContent = 'Could not load anomaly baseline.';
+                console.error('Anomaly chart load failed:', e);
+            }
+        }
+        
+        // History
+        async function loadHistory() {
+            const tbody = document.getElementById('historyBody');
+            try {
+                const res = await fetch('/history?limit=15');
+                const data = await res.json();
+                
+                if (data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" class="empty-state"><span class="material-icons">inbox</span><p>No data</p></td></tr>';
+                    return;
+                }
+                
+                tbody.innerHTML = [...data].reverse().map(r => `
+                    <tr class="${r.anomaly === 'True' ? 'anomaly' : ''}">
+                        <td>${formatTime(r.timestamp)}</td>
+                        <td><strong>${parseFloat(r.power || 0).toFixed(1)}</strong> W</td>
+                        <td>${parseFloat(r.voltage || 0).toFixed(1)} V</td>
+                        <td>${r.anomaly === 'True' 
+                            ? '<span class="badge badge--error"><span class="material-icons">warning</span>Anomaly</span>'
+                            : '<span class="badge badge--success"><span class="material-icons">check</span>OK</span>'
+                        }</td>
+                    </tr>
+                `).join('');
+            } catch (e) {
+                tbody.innerHTML = '<tr><td colspan="4" class="empty-state"><span class="material-icons">error</span><p>Error</p></td></tr>';
+                console.error('History load failed:', e);
+            }
+        }
+        
+        function formatTime(iso) { return iso ? new Date(iso).toLocaleTimeString() : '--'; }
+        
+        // Relay Control
+        async function toggleRelay() {
+            const on = document.getElementById('relaySwitch').checked;
+            try {
+                await fetch('/relay', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ on })
+                });
+                document.getElementById('relayStatus').textContent = on ? 'ON' : 'OFF';
+                document.getElementById('relayStatus').style.color = on ? 'var(--md-success)' : '';
+            } catch (e) {
+                document.getElementById('relayStatus').textContent = 'Unavailable';
+                document.getElementById('relayStatus').style.color = 'var(--md-error)';
+                console.error('Relay update failed:', e);
+            }
+        }
+        
+        async function loadRelayState() {
+            try {
+                const res = await fetch('/relay');
+                const data = await res.json();
+                document.getElementById('relaySwitch').checked = data.on;
+                document.getElementById('relayStatus').textContent = data.on ? 'ON' : 'OFF';
+                document.getElementById('relayStatus').style.color = data.on ? 'var(--md-success)' : '';
+            } catch (e) {
+                document.getElementById('relayStatus').textContent = 'Unavailable';
+                document.getElementById('relayStatus').style.color = 'var(--md-error)';
+                console.error('Relay status load failed:', e);
+            }
+        }
+        
+        // Simulate
+        async function simulateReadings() {
+            const status = document.getElementById('simStatus');
+            const basePower = { fridge: 35, ac_1: 800, ac_2: 600, boiler: 1500, washing_machine: 400, dishwasher: 800 };
+            const base = basePower[selectedDevice] || 100;
+            const readings = Array.from({length: 10}, () => Math.max(0, base + (Math.random() - 0.5) * base * 0.4));
+            
+            try {
+                const res = await fetch('/ml/simulate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ appliance: selectedDevice, readings })
+                });
+                const data = await res.json();
+                status.textContent = `✓ Added ${data.readings_added}`;
+                status.style.color = 'var(--md-success)';
+                loadPredictions();
+                loadAnomalyChart();
+                setTimeout(() => { status.textContent = ''; }, 3000);
+            } catch (e) {
+                status.textContent = 'Failed to add';
+                status.style.color = 'var(--md-error)';
+                console.error('Simulation failed:', e);
+            }
+        }
+        
+        // Model Info
+        function renderModelList(items) {
+            if (!items || items.length === 0) {
+                return '<li>Not available</li>';
+            }
+            return items.map((item) => `<li>${item}</li>`).join('');
+        }
+
+        async function showModelInfo() {
+            const panel = document.getElementById('modelInfoPanel');
+            const btn = document.getElementById('modelInfoBtn');
+
+            if (panel.classList.contains('model-info-panel--open')) {
+                panel.classList.remove('model-info-panel--open');
+                panel.innerHTML = '';
+                btn.innerHTML = '<span class="material-icons">info</span>Show model info';
+                return;
+            }
+
+            panel.classList.add('model-info-panel--open');
+            panel.innerHTML = '<div class="loading"><div class="spinner"></div>Loading model details...</div>';
+            btn.innerHTML = '<span class="material-icons">info</span>Hide model info';
+
+            try {
+                const res = await fetch('/ml/info');
+                const data = await res.json();
+                panel.innerHTML = `<div class="model-info-grid">
+                    <article class="model-info-card">
+                        <h4>Power predictors</h4>
+                        <ul class="mini-list">${renderModelList(data.power_predictors)}</ul>
+                    </article>
+                    <article class="model-info-card">
+                        <h4>Anomaly detectors</h4>
+                        <ul class="mini-list">${renderModelList(data.anomaly_detectors)}</ul>
+                    </article>
+                    <article class="model-info-card">
+                        <h4>Classifiers</h4>
+                        <ul class="mini-list">${renderModelList(data.classifiers)}</ul>
+                    </article>
+                </div>`;
+            } catch (e) {
+                panel.innerHTML = '<div class="result-banner result-banner--error"><span class="material-icons">error</span><div class="result-banner__text"><strong>Could not load model info</strong><span>Try again after reconnecting the backend.</span></div></div>';
+                console.error('Model info load failed:', e);
+            }
+        }
+        
+        // Init
+        document.addEventListener('DOMContentLoaded', () => {
+            initCharts();
+            loadRelayState();
+            loadPredictions();
+            loadHistory();
+            loadAnomalyChart();
+            
+            // Auto-connect to SSE stream
+            setTimeout(() => {
+                toggleStream();
+            }, 500);
+            
+            // Poll relay state every 3 seconds
+            setInterval(() => {
+                loadRelayState();
+            }, 3000);
+            
+            // Refresh history every 5 seconds
+            setInterval(() => {
+                loadHistory();
+            }, 5000);
+        });
+    </script>
+</body>
+</html>

@@ -2,35 +2,43 @@
 Smart Energy Monitor - ESP32 Firmware v2
 =========================================
 WiFi + MQTT enabled version with telemetry publishing and relay control.
-Sends data to backend which handles ML predictions.
 """
 
 from machine import Pin, SoftI2C, ADC
+import network
 import ssd1306
 import time
 import math
 import json
+import gc
 
 try:
     from umqtt.simple import MQTTClient
 except ImportError:
-    print("ERROR: umqtt not found. Install with: import upip; upip.install('micropython-umqtt.simple')")
     MQTTClient = None
 
-# Import WiFi config from boot_v2
+# Import config from boot_v2
 try:
     from boot_v2 import (
+        WIFI_SSID, WIFI_PASSWORD, WIFI_MAX_RETRIES, WIFI_TIMEOUT_SEC,
         MQTT_BROKER, MQTT_PORT, DEVICE_ID, APPLIANCE_TYPE,
-        TELEMETRY_INTERVAL_MS, DISPLAY_UPDATE_MS, wlan
+        TELEMETRY_INTERVAL_MS, DISPLAY_UPDATE_MS, MQTT_RECONNECT_MS
     )
 except ImportError:
-    MQTT_BROKER = "localhost"
+    WIFI_SSID = "nokia"
+    WIFI_PASSWORD = "tetra123"
+    WIFI_MAX_RETRIES = 3
+    WIFI_TIMEOUT_SEC = 15
+    MQTT_BROKER = "10.144.231.186"
     MQTT_PORT = 1883
     DEVICE_ID = "device01"
     APPLIANCE_TYPE = "fridge"
     TELEMETRY_INTERVAL_MS = 2000
     DISPLAY_UPDATE_MS = 1000
-    wlan = None
+    MQTT_RECONNECT_MS = 10000
+
+# WiFi global
+wlan = None
 
 # ══════════════════════════════════════════════════
 # Pin Configuration
@@ -43,11 +51,11 @@ VOLTAGE_PIN  = 35
 CURRENT_PIN  = 34
 
 # ══════════════════════════════════════════════════
-# MQTT Topics (matching backend)
+# MQTT Topics
 # ══════════════════════════════════════════════════
-TOPIC_TELEMETRY = f"energy/{DEVICE_ID}/telemetry"
-TOPIC_RELAY_SET = f"energy/{DEVICE_ID}/relay/set"
-TOPIC_RELAY_STATE = f"energy/{DEVICE_ID}/relay/state"
+TOPIC_TELEMETRY = "energy/" + DEVICE_ID + "/telemetry"
+TOPIC_RELAY_SET = "energy/" + DEVICE_ID + "/relay/set"
+TOPIC_RELAY_STATE = "energy/" + DEVICE_ID + "/relay/state"
 
 # ══════════════════════════════════════════════════
 # Hardware Initialization
@@ -91,13 +99,14 @@ I_NOISE_THRESH   = 0.08
 # Global State
 # ══════════════════════════════════════════════════
 current_screen = 0
-total_screens  = 4
+total_screens  = 5
 energy_kwh     = 0.0
 last_time      = 0
 mqtt_client    = None
 mqtt_connected = False
 last_relay_state = 1
 error_count = 0
+tx_count = 0
 
 # Debug values
 raw_v_rms = 0.0
@@ -123,8 +132,8 @@ def safe_oled_write(func):
 def show_oled(lines):
     def _write():
         oled.fill(0)
-        for i, line in enumerate(lines[:8]):
-            oled.text(str(line), 0, i * 8)
+        for idx, line in enumerate(lines[:8]):
+            oled.text(str(line), 0, idx * 8)
         oled.show()
     safe_oled_write(_write)
 
@@ -152,11 +161,70 @@ def load_calibration():
         return False
 
 # ══════════════════════════════════════════════════
+# WiFi Functions
+# ══════════════════════════════════════════════════
+def connect_wifi():
+    global wlan
+    wlan = network.WLAN(network.STA_IF)
+    wlan.active(True)
+    
+    if wlan.isconnected():
+        return True
+    
+    for attempt in range(WIFI_MAX_RETRIES):
+        gc.collect()
+        try:
+            wlan.connect(WIFI_SSID, WIFI_PASSWORD)
+        except OSError:
+            time.sleep(2)
+            continue
+        
+        wait_count = 0
+        while wait_count < WIFI_TIMEOUT_SEC:
+            if wlan.isconnected():
+                return True
+            status = wlan.status()
+            if status in (network.STAT_WRONG_PASSWORD, network.STAT_NO_AP_FOUND):
+                break
+            time.sleep(1)
+            wait_count += 1
+        
+        wlan.disconnect()
+        time.sleep(2)
+    
+    return False
+
+def check_wifi():
+    """Check WiFi and reconnect if disconnected."""
+    global wlan
+    if wlan is None:
+        return False
+    if wlan.isconnected():
+        return True
+    # WiFi disconnected - try to reconnect
+    try:
+        wlan.connect(WIFI_SSID, WIFI_PASSWORD)
+        wait = 0
+        while wait < 10 and not wlan.isconnected():
+            time.sleep(1)
+            wait += 1
+        return wlan.isconnected()
+    except:
+        return False
+
+def get_wifi_info():
+    if wlan is None or not wlan.isconnected():
+        return {"connected": False, "ip": None, "ssid": WIFI_SSID}
+    cfg = wlan.ifconfig()
+    return {"connected": True, "ip": cfg[0], "ssid": WIFI_SSID}
+
+# ══════════════════════════════════════════════════
 # MQTT Functions
 # ══════════════════════════════════════════════════
+relay_changed = False  # Flag to publish state outside callback
+
 def mqtt_callback(topic, msg):
-    """Handle incoming MQTT messages (relay control)."""
-    global last_relay_state
+    global relay_changed
     
     topic_str = topic.decode()
     payload = msg.decode()
@@ -164,42 +232,44 @@ def mqtt_callback(topic, msg):
     if topic_str == TOPIC_RELAY_SET:
         if payload == "1":
             relay.value(0)  # Active LOW: 0 = ON
-            print("[MQTT] Relay ON")
         else:
             relay.value(1)  # Active LOW: 1 = OFF
-            print("[MQTT] Relay OFF")
-        
-        # Publish state back
-        publish_relay_state()
+        relay_changed = True  # Mark to publish state in main loop
 
 def connect_mqtt():
     global mqtt_client, mqtt_connected
     
     if not wlan or not wlan.isconnected():
-        print("[MQTT] No WiFi connection")
+        mqtt_connected = False
         return False
     
     if MQTTClient is None:
-        print("[MQTT] umqtt library not available")
+        mqtt_connected = False
         return False
     
+    # Close existing client if any
+    if mqtt_client is not None:
+        try:
+            mqtt_client.disconnect()
+        except:
+            pass
+        mqtt_client = None
+    
     try:
-        client_id = f"esp32_{DEVICE_ID}"
-        mqtt_client = MQTTClient(client_id, MQTT_BROKER, port=MQTT_PORT)
+        client_id = "esp32_" + DEVICE_ID
+        mqtt_client = MQTTClient(client_id, MQTT_BROKER, port=MQTT_PORT, keepalive=60)
         mqtt_client.set_callback(mqtt_callback)
         mqtt_client.connect()
         mqtt_client.subscribe(TOPIC_RELAY_SET)
         mqtt_connected = True
-        print(f"[MQTT] Connected to {MQTT_BROKER}:{MQTT_PORT}")
         return True
     except Exception as e:
-        print(f"[MQTT] Connection failed: {e}")
         mqtt_connected = False
+        mqtt_client = None
         return False
 
 def publish_telemetry(voltage, current, power, energy):
-    """Publish sensor data to MQTT."""
-    global mqtt_connected
+    global mqtt_connected, tx_count, mqtt_client
     
     if not mqtt_connected or mqtt_client is None:
         return False
@@ -213,39 +283,52 @@ def publish_telemetry(voltage, current, power, energy):
             "appliance": APPLIANCE_TYPE,
             "device_id": DEVICE_ID
         })
-        mqtt_client.publish(TOPIC_TELEMETRY, payload, qos=0)
+        mqtt_client.publish(TOPIC_TELEMETRY, payload)
+        tx_count += 1
         return True
-    except Exception as e:
-        print(f"[MQTT] Publish failed: {e}")
+    except OSError:
         mqtt_connected = False
+        try:
+            mqtt_client.disconnect()
+        except:
+            pass
+        mqtt_client = None
         return False
 
 def publish_relay_state():
-    """Publish current relay state."""
-    global mqtt_connected
+    global mqtt_connected, mqtt_client
     
     if not mqtt_connected or mqtt_client is None:
         return False
     
     try:
-        state = "0" if relay.value() == 1 else "1"  # Invert (active LOW)
-        mqtt_client.publish(TOPIC_RELAY_STATE, state, qos=0)
+        state = "0" if relay.value() == 1 else "1"
+        mqtt_client.publish(TOPIC_RELAY_STATE, state)
         return True
-    except:
+    except OSError:
         mqtt_connected = False
+        try:
+            mqtt_client.disconnect()
+        except:
+            pass
+        mqtt_client = None
         return False
 
 def check_mqtt_messages():
-    """Check for incoming MQTT messages (non-blocking)."""
-    global mqtt_connected
+    global mqtt_connected, mqtt_client
     
     if not mqtt_connected or mqtt_client is None:
         return
     
     try:
         mqtt_client.check_msg()
-    except:
+    except OSError:
         mqtt_connected = False
+        try:
+            mqtt_client.disconnect()
+        except:
+            pass
+        mqtt_client = None
 
 # ══════════════════════════════════════════════════
 # Sensor Functions
@@ -318,11 +401,10 @@ def get_rms_current():
 # Display Functions
 # ══════════════════════════════════════════════════
 def get_status_icons():
-    """Return compact status string for header."""
-    wifi_icon = "W" if (wlan and wlan.isconnected()) else "!"
-    mqtt_icon = "M" if mqtt_connected else "!"
-    relay_icon = "R" if relay.value() == 0 else "r"  # R=ON, r=OFF
-    return f"{wifi_icon}{mqtt_icon}{relay_icon}"
+    wifi_icon = "W" if (wlan and wlan.isconnected()) else "w"
+    mqtt_icon = "M" if mqtt_connected else "m"
+    relay_icon = "R" if relay.value() == 0 else "r"
+    return wifi_icon + mqtt_icon + relay_icon
 
 def update_display(v, i, w):
     def _update():
@@ -330,81 +412,115 @@ def update_display(v, i, w):
         status = get_status_icons()
 
         if current_screen == 0:
-            # ── Main Dashboard - All key info ──
-            oled.text(f"LIVE [{status}]", 0, 0)
+            # Main Dashboard
+            hdr = "[%s] %s" % (status, APPLIANCE_TYPE[:6])
+            oled.text(hdr, 0, 0)
             oled.hline(0, 9, 128, 1)
             
-            # Large power display
-            oled.text(f"{v:.1f}V {i:.2f}A", 0, 12)
-            oled.text(f"Power: {w:.1f}W", 0, 22)
+            oled.text("V:%.1f I:%.2f" % (v, i), 0, 12)
+            oled.text("Power: %.1f W" % w, 0, 23)
             
-            # Energy + Relay status
-            oled.hline(0, 31, 128, 1)
-            oled.text(f"E:{energy_kwh:.4f}kWh", 0, 34)
+            oled.hline(0, 32, 128, 1)
+            oled.text("E: %.5f kWh" % energy_kwh, 0, 35)
             
             relay_str = "ON " if relay.value() == 0 else "OFF"
-            oled.text(f"Relay:{relay_str}", 0, 44)
+            oled.text("Relay:%s Tx:%d" % (relay_str, tx_count), 0, 46)
             
-            # Network status bar
-            oled.hline(0, 53, 128, 1)
+            oled.hline(0, 55, 128, 1)
             wifi_str = "OK" if (wlan and wlan.isconnected()) else "X"
             mqtt_str = "OK" if mqtt_connected else "X"
-            oled.text(f"WiFi:{wifi_str} MQTT:{mqtt_str}", 0, 56)
+            oled.text("Net:%s Srv:%s" % (wifi_str, mqtt_str), 0, 57)
 
         elif current_screen == 1:
-            # ── Energy & Stats ──
-            oled.text(f"ENERGY [{status}]", 0, 0)
+            # Energy
+            oled.text("ENERGY [%s]" % status, 0, 0)
             oled.hline(0, 9, 128, 1)
             
-            oled.text(f"Total:", 0, 12)
-            oled.text(f" {energy_kwh:.6f} kWh", 0, 22)
+            oled.text("Accumulated:", 0, 12)
+            oled.text(" %.6f kWh" % energy_kwh, 0, 22)
             
             oled.hline(0, 31, 128, 1)
-            oled.text(f"V:{v:.1f} I:{i:.2f}", 0, 34)
-            oled.text(f"P:{w:.1f}W", 0, 44)
+            oled.text("Current Readings:", 0, 34)
+            oled.text("V:%.1f I:%.2f P:%.0f" % (v, i, w), 0, 44)
             
             relay_str = "ON" if relay.value() == 0 else "OFF"
-            oled.text(f"Relay: {relay_str}", 0, 56)
+            oled.text("Relay:%s Err:%d" % (relay_str, error_count), 0, 56)
 
         elif current_screen == 2:
-            # ── Network Info ──
-            oled.text(f"NETWORK [{status}]", 0, 0)
+            # Network
+            oled.text("NETWORK [%s]" % status, 0, 0)
             oled.hline(0, 9, 128, 1)
             
-            # WiFi section
-            if wlan and wlan.isconnected():
-                ip = wlan.ifconfig()[0]
+            wifi_info = get_wifi_info()
+            if wifi_info["connected"]:
                 oled.text("WiFi: Connected", 0, 12)
-                oled.text(f"IP:{ip}", 0, 22)
+                oled.text("IP: %s" % wifi_info["ip"], 0, 22)
             else:
                 oled.text("WiFi: OFFLINE", 0, 12)
-                oled.text("No IP", 0, 22)
+                ssid = wifi_info["ssid"]
+                if ssid:
+                    oled.text("SSID: %s" % ssid[:14], 0, 22)
             
             oled.hline(0, 31, 128, 1)
             
-            # MQTT section
             if mqtt_connected:
                 oled.text("MQTT: Connected", 0, 34)
+                oled.text("Tx: %d msgs" % tx_count, 0, 44)
             else:
                 oled.text("MQTT: OFFLINE", 0, 34)
-            oled.text(f"Brkr:{MQTT_BROKER}", 0, 44)
-            oled.text(f"ID:{DEVICE_ID}", 0, 54)
+                oled.text("Reconnecting...", 0, 44)
+            
+            oled.text("Srv:%s" % MQTT_BROKER[:15], 0, 56)
 
         elif current_screen == 3:
-            # ── Debug/Raw Values ──
-            oled.text(f"DEBUG [{status}]", 0, 0)
+            # Config
+            oled.text("CONFIG [%s]" % status, 0, 0)
             oled.hline(0, 9, 128, 1)
             
-            oled.text(f"Vraw:{raw_v_rms:.1f}", 0, 12)
-            oled.text(f"Irms:{raw_i_rms:.4f}V", 0, 22)
-            oled.text(f"Iavg:{raw_i_avg:.3f}V", 0, 32)
-            oled.text(f"Imid:{ACS_LIVE_MID:.3f}V", 0, 42)
-            oled.text(f"Sens:{ACS_SENSITIVITY:.4f}", 0, 52)
-            oled.text(f"Err:{error_count}", 90, 52)
+            oled.text("ID: %s" % DEVICE_ID, 0, 12)
+            oled.text("Type: %s" % APPLIANCE_TYPE, 0, 22)
+            
+            oled.hline(0, 31, 128, 1)
+            oled.text("Broker: %s" % MQTT_BROKER[:14], 0, 34)
+            oled.text("Port: %d" % MQTT_PORT, 0, 44)
+            
+            oled.text("TX int: %dms" % TELEMETRY_INTERVAL_MS, 0, 56)
+
+        elif current_screen == 4:
+            # Debug
+            oled.text("DEBUG [%s]" % status, 0, 0)
+            oled.hline(0, 9, 128, 1)
+            
+            oled.text("Vraw: %.2f" % raw_v_rms, 0, 12)
+            oled.text("Irms: %.5f V" % raw_i_rms, 0, 22)
+            oled.text("Iavg: %.4f V" % raw_i_avg, 0, 32)
+            oled.text("Imid: %.4f V" % ACS_LIVE_MID, 0, 42)
+            
+            gc.collect()
+            mem_free = gc.mem_free() // 1024
+            oled.text("Mem:%dK Err:%d" % (mem_free, error_count), 0, 56)
 
         oled.show()
     
     safe_oled_write(_update)
+
+# ══════════════════════════════════════════════════
+# Boot Screen
+# ══════════════════════════════════════════════════
+def boot_screen(step, total, title, detail=""):
+    oled.fill(0)
+    oled.text("SMART METER v2", 8, 0)
+    oled.hline(0, 10, 128, 1)
+    oled.text("[%d/%d] %s" % (step, total, title), 0, 14)
+    if detail:
+        oled.text(detail[:21], 0, 26)
+    # Progress bar
+    progress_pct = int((step / total) * 100)
+    bar_width = int(progress_pct * 1.16)
+    oled.rect(4, 52, 120, 10, 1)
+    oled.fill_rect(5, 53, min(bar_width, 118), 8, 1)
+    oled.text("%d%%" % progress_pct, 52, 40)
+    oled.show()
 
 # ══════════════════════════════════════════════════
 # Main Loop
@@ -416,97 +532,102 @@ def main():
     init_hardware()
     last_time = time.ticks_ms()
     
-    # Startup splash with boot progress
-    def boot_screen(step, status, detail=""):
-        oled.fill(0)
-        oled.text("SMART METER v2", 8, 0)
-        oled.hline(0, 10, 128, 1)
-        oled.text(f"Step {step}/5", 0, 14)
-        oled.text(status, 0, 26)
-        if detail:
-            oled.text(detail[:16], 0, 38)
-        # Progress bar
-        progress = int((step / 5) * 120)
-        oled.rect(4, 52, 120, 10, 1)
-        oled.fill_rect(5, 53, progress, 8, 1)
-        oled.show()
-    
-    safe_oled_write(lambda: boot_screen(1, "Booting..."))
+    # Step 1: Boot
+    safe_oled_write(lambda: boot_screen(1, 6, "Booting", "ID: " + DEVICE_ID))
     time.sleep(0.5)
     
-    # Show WiFi status
-    if wlan and wlan.isconnected():
+    # Step 2: Connect WiFi
+    safe_oled_write(lambda: boot_screen(2, 6, "WiFi", WIFI_SSID[:16]))
+    wifi_ok = connect_wifi()
+    if wifi_ok:
         ip = wlan.ifconfig()[0]
-        safe_oled_write(lambda: boot_screen(2, "WiFi: OK", ip))
+        safe_oled_write(lambda: boot_screen(2, 6, "WiFi OK", ip))
     else:
-        safe_oled_write(lambda: boot_screen(2, "WiFi: OFFLINE", "No connection"))
-    time.sleep(0.8)
+        safe_oled_write(lambda: boot_screen(2, 6, "WiFi FAIL", "Offline mode"))
+    time.sleep(0.6)
     
-    # Load calibration
-    safe_oled_write(lambda: boot_screen(3, "Loading calib..."))
-    time.sleep(0.3)
+    # Step 3: Load calibration
+    safe_oled_write(lambda: boot_screen(3, 6, "Calibration", "Loading..."))
+    time.sleep(0.2)
     if not load_calibration():
-        show_oled([
-            "!! ERROR !!",
-            "",
-            "No calibration",
-            "file found.",
-            "",
-            "Run calibrate.py",
-            "then reboot"
-        ])
+        oled.fill(0)
+        oled.text("!! ERROR !!", 20, 0)
+        oled.hline(0, 10, 128, 1)
+        oled.text("No calibration", 0, 16)
+        oled.text("file found!", 0, 26)
+        oled.text("Run calibrate.py", 0, 40)
+        oled.text("then reboot", 0, 50)
+        oled.show()
         while True:
             time.sleep(1)
     
-    safe_oled_write(lambda: boot_screen(3, "Calibration: OK"))
-    time.sleep(0.5)
+    safe_oled_write(lambda: boot_screen(3, 6, "Calibration", "OK"))
+    time.sleep(0.4)
     
-    # Connect to MQTT
-    safe_oled_write(lambda: boot_screen(4, "MQTT connecting", MQTT_BROKER))
-    mqtt_retry_count = 0
-    while not mqtt_connected and mqtt_retry_count < 3:
+    # Step 4: MQTT connection
+    safe_oled_write(lambda: boot_screen(4, 6, "MQTT", MQTT_BROKER[:16]))
+    mqtt_retry = 0
+    while not mqtt_connected and mqtt_retry < 3:
         if connect_mqtt():
-            safe_oled_write(lambda: boot_screen(4, "MQTT: OK", MQTT_BROKER))
-            time.sleep(0.5)
+            safe_oled_write(lambda: boot_screen(4, 6, "MQTT OK", MQTT_BROKER[:16]))
+            time.sleep(0.4)
             break
-        mqtt_retry_count += 1
+        mqtt_retry += 1
         time.sleep(0.5)
     
     if not mqtt_connected:
-        safe_oled_write(lambda: boot_screen(4, "MQTT: OFFLINE", "Will retry..."))
-        time.sleep(0.8)
+        safe_oled_write(lambda: boot_screen(4, 6, "MQTT FAIL", "Will retry..."))
+        time.sleep(0.6)
     
-    # Initial sensor zero
-    safe_oled_write(lambda: boot_screen(5, "Zeroing sensors"))
+    # Step 5: Zero sensors
+    safe_oled_write(lambda: boot_screen(5, 6, "Sensors", "Zeroing..."))
     relay.value(1)
     time.sleep_ms(500)
     update_current_baseline()
+    safe_oled_write(lambda: boot_screen(5, 6, "Sensors", "Ready"))
+    time.sleep(0.3)
     
-    # Publish initial relay state
+    # Step 6: Start
+    safe_oled_write(lambda: boot_screen(6, 6, "Starting", APPLIANCE_TYPE))
     publish_relay_state()
+    time.sleep(0.5)
+    gc.collect()
     
+    # Main loop variables
     btn_pressed = False
     press_start = 0
     last_update = 0
     last_mqtt_publish = 0
     mqtt_reconnect_time = 0
-    
-    MQTT_RECONNECT_INTERVAL_MS = 10000  # Retry MQTT every 10 seconds
+    wifi_check_time = 0
     
     # Main loop
     while True:
         try:
             now = time.ticks_ms()
             
-            # ── Check MQTT messages ──────────────────
+            # Check MQTT messages
             check_mqtt_messages()
             
-            # ── MQTT Reconnection ──────────────────
-            if not mqtt_connected and time.ticks_diff(now, mqtt_reconnect_time) > MQTT_RECONNECT_INTERVAL_MS:
-                connect_mqtt()
+            # WiFi/MQTT Reconnection (check every 10s if disconnected)
+            if not mqtt_connected and time.ticks_diff(now, mqtt_reconnect_time) > MQTT_RECONNECT_MS:
+                # First ensure WiFi is connected
+                if not (wlan and wlan.isconnected()):
+                    if time.ticks_diff(now, wifi_check_time) > 30000:  # Check WiFi every 30s
+                        check_wifi()
+                        wifi_check_time = now
+                # Then try MQTT if WiFi is up
+                if wlan and wlan.isconnected():
+                    connect_mqtt()
                 mqtt_reconnect_time = now
             
-            # ── Touch Button Handler ──────────────────
+            # Publish relay state if changed via MQTT command
+            global relay_changed
+            if relay_changed:
+                publish_relay_state()
+                relay_changed = False
+            
+            # Touch Button Handler
             is_touched = touch_btn.value() == 1
 
             if is_touched and not btn_pressed:
@@ -525,27 +646,27 @@ def main():
                     publish_relay_state()
                     last_update = 0
 
-            # ── Auto re-zero when relay turns OFF ──────────────────
+            # Auto re-zero when relay turns OFF
             current_relay = relay.value()
             if current_relay == 1 and last_relay_state == 0:
                 time.sleep_ms(300)
                 update_current_baseline()
             last_relay_state = current_relay
 
-            # ── Sensor Read + Display ───────────────
+            # Sensor Read + Display
             if time.ticks_diff(now, last_update) >= DISPLAY_UPDATE_MS:
                 volts = get_rms_voltage()
                 amps = get_rms_current()
                 watts = round(volts * amps, 1)
 
-                hours_passed = time.ticks_diff(now, last_time) / 3_600_000.0
+                hours_passed = time.ticks_diff(now, last_time) / 3600000.0
                 energy_kwh += (watts / 1000.0) * hours_passed
                 last_time = now
 
                 update_display(volts, amps, watts)
                 last_update = now
                 
-                # ── Publish Telemetry to MQTT ──────────────────
+                # Publish Telemetry to MQTT
                 if time.ticks_diff(now, last_mqtt_publish) >= TELEMETRY_INTERVAL_MS:
                     publish_telemetry(volts, amps, watts, energy_kwh)
                     last_mqtt_publish = now
@@ -554,7 +675,6 @@ def main():
             
         except Exception as e:
             error_count += 1
-            print(f"[ERROR] {e}")
             time.sleep_ms(500)
             try:
                 init_hardware()
@@ -564,3 +684,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

@@ -1,1617 +1,1473 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Energy Monitor</title>
-    
-    <!-- Material Design 2 -->
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
-    
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    
-    <style>
-        :root {
-            --md-sys-color-primary: #0061a4;
-            --md-sys-color-on-primary: #ffffff;
-            --md-sys-color-primary-container: #d1e4ff;
-            --md-sys-color-on-primary-container: #001d36;
-            --md-sys-color-secondary: #535f70;
-            --md-sys-color-on-secondary: #ffffff;
-            --md-sys-color-secondary-container: #d7e3f7;
-            --md-sys-color-surface: #fdfcff;
-            --md-sys-color-surface-variant: #dfe2eb;
-            --md-sys-color-on-surface: #1a1c1e;
-            --md-sys-color-on-surface-variant: #43474e;
-            --md-sys-color-outline: #73777f;
-            --md-sys-color-outline-variant: #c3c7cf;
-            --md-sys-color-error: #ba1a1a;
-            --md-sys-color-error-container: #ffdad6;
-            --md-sys-color-success: #006d3b;
-            --md-sys-color-success-container: #9cf6b4;
-            --md-sys-color-warning: #7d5800;
-            --md-sys-color-warning-container: #ffdea6;
-            
-            --md-elevation-1: 0 1px 3px 1px rgba(0,0,0,0.15), 0 1px 2px rgba(0,0,0,0.3);
-            --md-elevation-2: 0 2px 6px 2px rgba(0,0,0,0.15), 0 1px 2px rgba(0,0,0,0.3);
-            --md-elevation-3: 0 4px 8px 3px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.3);
-            
-            --md-radius-sm: 8px;
-            --md-radius-md: 12px;
-            --md-radius-lg: 16px;
-            --md-radius-xl: 28px;
-        }
-        
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        
-        body {
-            font-family: 'Roboto', sans-serif;
-            background: #f5f5f5;
-            color: var(--md-sys-color-on-surface);
-            min-height: 100vh;
-            line-height: 1.5;
-        }
-        
-        /* ══════════════════════════════════════════════════════════════
-           TOP APP BAR - Material Design 3 Style
-           ══════════════════════════════════════════════════════════════ */
-        .top-app-bar {
-            background: var(--md-sys-color-surface);
-            padding: 8px 16px;
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            border-bottom: 1px solid var(--md-sys-color-outline-variant);
-        }
-        
-        .top-app-bar__leading {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        
-        .top-app-bar__icon {
-            width: 48px;
-            height: 48px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: var(--md-sys-color-primary-container);
-            border-radius: 50%;
-            color: var(--md-sys-color-on-primary-container);
-        }
-        
-        .top-app-bar__title {
-            font-size: 22px;
-            font-weight: 400;
-            color: var(--md-sys-color-on-surface);
-        }
-        
-        .top-app-bar__spacer { flex: 1; }
-        
-        .top-app-bar__actions {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        
-        /* Device Selector */
-        .device-selector {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 16px;
-            background: var(--md-sys-color-surface-variant);
-            border-radius: var(--md-radius-xl);
-            border: none;
-            cursor: pointer;
-            font-family: inherit;
-            font-size: 14px;
-            color: var(--md-sys-color-on-surface);
-            transition: background 0.2s;
-        }
-        
-        .device-selector:hover {
-            background: var(--md-sys-color-outline-variant);
-        }
-        
-        .device-selector select {
-            border: none;
-            background: transparent;
-            font-family: inherit;
-            font-size: 14px;
-            font-weight: 500;
-            color: inherit;
-            cursor: pointer;
-            outline: none;
-            padding-right: 8px;
-        }
-        
-        /* Connection Status */
-        .status-chip {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            padding: 6px 16px;
-            border-radius: var(--md-radius-xl);
-            font-size: 12px;
-            font-weight: 500;
-            letter-spacing: 0.5px;
-        }
-        
-        .status-chip.offline {
-            background: var(--md-sys-color-error-container);
-            color: var(--md-sys-color-error);
-        }
-        
-        .status-chip.online {
-            background: var(--md-sys-color-success-container);
-            color: var(--md-sys-color-success);
-        }
-        
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: currentColor;
-            animation: pulse 2s infinite;
-        }
-        
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-        
-        /* ══════════════════════════════════════════════════════════════
-           MAIN LAYOUT
-           ══════════════════════════════════════════════════════════════ */
-        .main-container {
-            max-width: 1440px;
-            margin: 0 auto;
-            padding: 24px;
-        }
-        
-        .dashboard-grid {
-            display: grid;
-            grid-template-columns: repeat(12, 1fr);
-            gap: 24px;
-        }
-        
-        /* ══════════════════════════════════════════════════════════════
-           CARDS - Material Design 3 Elevated Cards
-           ══════════════════════════════════════════════════════════════ */
-        .card {
-            background: var(--md-sys-color-surface);
-            border-radius: var(--md-radius-md);
-            box-shadow: var(--md-elevation-1);
-            overflow: hidden;
-        }
-        
-        .card--elevated {
-            box-shadow: var(--md-elevation-2);
-        }
-        
-        .card__header {
-            padding: 20px 24px 12px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        
-        .card__headline {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        
-        .card__headline-icon {
-            width: 40px;
-            height: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: var(--md-sys-color-primary-container);
-            border-radius: var(--md-radius-md);
-            color: var(--md-sys-color-on-primary-container);
-        }
-        
-        .card__headline-text h3 {
-            font-size: 16px;
-            font-weight: 500;
-            color: var(--md-sys-color-on-surface);
-        }
-        
-        .card__headline-text span {
-            font-size: 12px;
-            color: var(--md-sys-color-on-surface-variant);
-        }
-        
-        .card__content {
-            padding: 12px 24px 24px;
-        }
-        
-        /* ══════════════════════════════════════════════════════════════
-           METRICS DISPLAY - Large Prominent Numbers
-           ══════════════════════════════════════════════════════════════ */
-        .metrics-row {
-            grid-column: span 12;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 16px;
-        }
-        
-        .metric-card {
-            background: var(--md-sys-color-surface);
-            border-radius: var(--md-radius-lg);
-            padding: 24px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            border: 1px solid var(--md-sys-color-outline-variant);
-            transition: all 0.2s ease;
-        }
-        
-        .metric-card:hover {
-            box-shadow: var(--md-elevation-2);
-            border-color: var(--md-sys-color-primary);
-        }
-        
-        .metric-card__header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        
-        .metric-card__label {
-            font-size: 14px;
-            font-weight: 500;
-            color: var(--md-sys-color-on-surface-variant);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        
-        .metric-card__icon {
-            width: 32px;
-            height: 32px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 50%;
-            font-size: 18px;
-        }
-        
-        .metric-card__value {
-            font-size: 48px;
-            font-weight: 300;
-            line-height: 1;
-            color: var(--md-sys-color-on-surface);
-        }
-        
-        .metric-card__unit {
-            font-size: 20px;
-            font-weight: 400;
-            color: var(--md-sys-color-on-surface-variant);
-            margin-left: 4px;
-        }
-        
-        .metric-card__trend {
-            font-size: 12px;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-        
-        .metric-card--primary .metric-card__icon {
-            background: var(--md-sys-color-primary-container);
-            color: var(--md-sys-color-on-primary-container);
-        }
-        
-        .metric-card--warning .metric-card__icon {
-            background: var(--md-sys-color-warning-container);
-            color: var(--md-sys-color-warning);
-        }
-        
-        .metric-card--success .metric-card__icon {
-            background: var(--md-sys-color-success-container);
-            color: var(--md-sys-color-success);
-        }
-        
-        .metric-card--error .metric-card__icon {
-            background: var(--md-sys-color-error-container);
-            color: var(--md-sys-color-error);
-        }
-        
-        .metric-card--error {
-            border-color: var(--md-sys-color-error);
-            background: var(--md-sys-color-error-container);
-        }
-        
-        .metric-card--error .metric-card__value {
-            color: var(--md-sys-color-error);
-        }
-        
-        /* ══════════════════════════════════════════════════════════════
-           CHART CONTAINERS
-           ══════════════════════════════════════════════════════════════ */
-        .chart-area {
-            position: relative;
-            height: 280px;
-            width: 100%;
-        }
-        
-        .chart-area--small {
-            height: 200px;
-        }
-        
-        .chart-area--large {
-            height: 350px;
-        }
-        
-        /* Chart Card Spans */
-        .card--power-chart { grid-column: span 8; }
-        .card--ml-forecast { grid-column: span 4; }
-        .card--anomaly { grid-column: span 6; }
-        .card--history { grid-column: span 6; }
-        .card--controls { grid-column: span 12; }
-        
-        /* ══════════════════════════════════════════════════════════════
-           ML PREDICTION PANEL
-           ══════════════════════════════════════════════════════════════ */
-        .prediction-panel {
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
-        
-        .prediction-item {
-            padding: 16px;
-            background: var(--md-sys-color-surface-variant);
-            border-radius: var(--md-radius-md);
-        }
-        
-        .prediction-item__header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
-        }
-        
-        .prediction-item__label {
-            font-size: 12px;
-            font-weight: 500;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: var(--md-sys-color-on-surface-variant);
-        }
-        
-        .prediction-item__badge {
-            padding: 4px 12px;
-            border-radius: var(--md-radius-xl);
-            font-size: 11px;
-            font-weight: 500;
-        }
-        
-        .badge--success {
-            background: var(--md-sys-color-success-container);
-            color: var(--md-sys-color-success);
-        }
-        
-        .badge--warning {
-            background: var(--md-sys-color-warning-container);
-            color: var(--md-sys-color-warning);
-        }
-        
-        .badge--error {
-            background: var(--md-sys-color-error-container);
-            color: var(--md-sys-color-error);
-        }
-        
-        .prediction-item__value {
-            font-size: 32px;
-            font-weight: 300;
-            color: var(--md-sys-color-on-surface);
-        }
-        
-        .prediction-item__value small {
-            font-size: 14px;
-            color: var(--md-sys-color-on-surface-variant);
-        }
-        
-        .prediction-item__meta {
-            font-size: 12px;
-            color: var(--md-sys-color-on-surface-variant);
-            margin-top: 4px;
-        }
-        
-        /* ══════════════════════════════════════════════════════════════
-           BUTTONS - Material Design 3
-           ══════════════════════════════════════════════════════════════ */
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            padding: 10px 24px;
-            border-radius: var(--md-radius-xl);
-            font-family: inherit;
-            font-size: 14px;
-            font-weight: 500;
-            letter-spacing: 0.1px;
-            cursor: pointer;
-            border: none;
-            transition: all 0.2s;
-        }
-        
-        .btn .material-icons-outlined { font-size: 18px; }
-        
-        .btn--filled {
-            background: var(--md-sys-color-primary);
-            color: var(--md-sys-color-on-primary);
-        }
-        
-        .btn--filled:hover {
-            box-shadow: var(--md-elevation-1);
-        }
-        
-        .btn--filled-tonal {
-            background: var(--md-sys-color-secondary-container);
-            color: var(--md-sys-color-on-secondary-container);
-        }
-        
-        .btn--outlined {
-            background: transparent;
-            border: 1px solid var(--md-sys-color-outline);
-            color: var(--md-sys-color-primary);
-        }
-        
-        .btn--outlined:hover {
-            background: rgba(0, 97, 164, 0.08);
-        }
-        
-        .btn--icon {
-            width: 40px;
-            height: 40px;
-            padding: 0;
-            border-radius: 50%;
-            background: transparent;
-            color: var(--md-sys-color-on-surface-variant);
-        }
-        
-        .btn--icon:hover {
-            background: var(--md-sys-color-surface-variant);
-        }
-        
-        .btn--success {
-            background: var(--md-sys-color-success);
-            color: white;
-        }
-        
-        .btn--error {
-            background: var(--md-sys-color-error);
-            color: white;
-        }
-        
-        /* ══════════════════════════════════════════════════════════════
-           SWITCH / TOGGLE - Material Design 3
-           ══════════════════════════════════════════════════════════════ */
-        .switch {
-            position: relative;
-            display: inline-flex;
-            width: 52px;
-            height: 32px;
-        }
-        
-        .switch input { opacity: 0; width: 0; height: 0; }
-        
-        .switch__track {
-            position: absolute;
-            inset: 0;
-            background: var(--md-sys-color-surface-variant);
-            border: 2px solid var(--md-sys-color-outline);
-            border-radius: 16px;
-            transition: all 0.2s;
-        }
-        
-        .switch__thumb {
-            position: absolute;
-            width: 16px;
-            height: 16px;
-            left: 8px;
-            top: 8px;
-            background: var(--md-sys-color-outline);
-            border-radius: 50%;
-            transition: all 0.2s;
-        }
-        
-        .switch input:checked + .switch__track {
-            background: var(--md-sys-color-primary);
-            border-color: var(--md-sys-color-primary);
-        }
-        
-        .switch input:checked ~ .switch__thumb {
-            transform: translateX(20px);
-            background: var(--md-sys-color-on-primary);
-            width: 24px;
-            height: 24px;
-            left: 4px;
-            top: 4px;
-        }
-        
-        /* ══════════════════════════════════════════════════════════════
-           CONTROL PANEL
-           ══════════════════════════════════════════════════════════════ */
-        .control-row {
-            display: flex;
-            align-items: center;
-            gap: 24px;
-            flex-wrap: wrap;
-        }
-        
-        .control-group {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        
-        .control-label {
-            font-size: 14px;
-            color: var(--md-sys-color-on-surface-variant);
-        }
-        
-        /* ══════════════════════════════════════════════════════════════
-           HISTORY TABLE
-           ══════════════════════════════════════════════════════════════ */
-        .data-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 14px;
-        }
-        
-        .data-table th {
-            text-align: left;
-            padding: 12px 16px;
-            font-weight: 500;
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: var(--md-sys-color-on-surface-variant);
-            border-bottom: 1px solid var(--md-sys-color-outline-variant);
-        }
-        
-        .data-table td {
-            padding: 12px 16px;
-            border-bottom: 1px solid var(--md-sys-color-outline-variant);
-        }
-        
-        .data-table tr:last-child td { border-bottom: none; }
-        
-        .data-table tr:hover { background: var(--md-sys-color-surface-variant); }
-        
-        .data-table tr.anomaly-row {
-            background: var(--md-sys-color-error-container);
-        }
-        
-        .status-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            padding: 4px 10px;
-            border-radius: var(--md-radius-xl);
-            font-size: 12px;
-            font-weight: 500;
-        }
-        
-        .status-badge--normal {
-            background: var(--md-sys-color-success-container);
-            color: var(--md-sys-color-success);
-        }
-        
-        .status-badge--anomaly {
-            background: var(--md-sys-color-error-container);
-            color: var(--md-sys-color-error);
-        }
-        
-        /* ══════════════════════════════════════════════════════════════
-           ANOMALY CHECKER INPUT
-           ══════════════════════════════════════════════════════════════ */
-        .input-group {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-        
-        .text-field {
-            display: flex;
-            align-items: center;
-            height: 48px;
-            padding: 0 16px;
-            background: var(--md-sys-color-surface-variant);
-            border-radius: var(--md-radius-sm);
-            border: 1px solid transparent;
-            transition: all 0.2s;
-        }
-        
-        .text-field:focus-within {
-            border-color: var(--md-sys-color-primary);
-            background: var(--md-sys-color-surface);
-        }
-        
-        .text-field input {
-            border: none;
-            background: transparent;
-            font-family: inherit;
-            font-size: 16px;
-            width: 120px;
-            outline: none;
-        }
-        
-        .text-field__suffix {
-            font-size: 14px;
-            color: var(--md-sys-color-on-surface-variant);
-            margin-left: 4px;
-        }
-        
-        .result-banner {
-            padding: 16px;
-            border-radius: var(--md-radius-md);
-            display: flex;
-            align-items: flex-start;
-            gap: 12px;
-            margin-top: 16px;
-        }
-        
-        .result-banner--success {
-            background: var(--md-sys-color-success-container);
-            color: var(--md-sys-color-success);
-        }
-        
-        .result-banner--error {
-            background: var(--md-sys-color-error-container);
-            color: var(--md-sys-color-error);
-        }
-        
-        .result-banner .material-icons-outlined { font-size: 24px; }
-        
-        .result-banner__content strong {
-            display: block;
-            margin-bottom: 4px;
-        }
-        
-        .result-banner__content span {
-            font-size: 13px;
-            opacity: 0.85;
-        }
-        
-        /* ══════════════════════════════════════════════════════════════
-           SECTION DIVIDER
-           ══════════════════════════════════════════════════════════════ */
-        .section-header {
-            grid-column: span 12;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 8px 0;
-            margin-top: 8px;
-        }
-        
-        .section-header h2 {
-            font-size: 14px;
-            font-weight: 500;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: var(--md-sys-color-on-surface-variant);
-        }
-        
-        .section-header__line {
-            flex: 1;
-            height: 1px;
-            background: var(--md-sys-color-outline-variant);
-        }
-        
-        /* ══════════════════════════════════════════════════════════════
-           RESPONSIVE
-           ══════════════════════════════════════════════════════════════ */
-        @media (max-width: 1200px) {
-            .card--power-chart { grid-column: span 12; }
-            .card--ml-forecast { grid-column: span 12; }
-        }
-        
-        @media (max-width: 900px) {
-            .card--anomaly { grid-column: span 12; }
-            .card--history { grid-column: span 12; }
-            .metric-card__value { font-size: 36px; }
-        }
-        
-        @media (max-width: 600px) {
-            .main-container { padding: 16px; }
-            .dashboard-grid { gap: 16px; }
-            .top-app-bar__title { font-size: 18px; }
-            .metrics-row { grid-template-columns: repeat(2, 1fr); }
-            .metric-card { padding: 16px; }
-            .metric-card__value { font-size: 28px; }
-            .metric-card__unit { font-size: 14px; }
-        }
-        
-        /* ══════════════════════════════════════════════════════════════
-           LOADING STATE
-           ══════════════════════════════════════════════════════════════ */
-        .loading {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 40px;
-            color: var(--md-sys-color-on-surface-variant);
-        }
-        
-        .spinner {
-            width: 24px;
-            height: 24px;
-            border: 3px solid var(--md-sys-color-surface-variant);
-            border-top-color: var(--md-sys-color-primary);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-right: 12px;
-        }
-        
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        
-        /* Empty state */
-        .empty-state {
-            text-align: center;
-            padding: 40px;
-            color: var(--md-sys-color-on-surface-variant);
-        }
-        
-        .empty-state .material-icons-outlined {
-            font-size: 48px;
-            margin-bottom: 16px;
-            opacity: 0.5;
-        }
-    </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Smart Energy Monitor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Material+Icons&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/material-components-web@14.0.0/dist/material-components-web.min.css">
+  <style>
+    :root {
+      --bg: #eef3f9;
+      --surface: #ffffff;
+      --surface-soft: #f6f9fd;
+      --text: #233042;
+      --text-muted: #607086;
+      --divider: #d7e0eb;
+      --primary: #3367d6;
+      --primary-dark: #1f4fb9;
+      --accent: #4b7de8;
+      --success: #2e7d32;
+      --warning: #f29900;
+      --danger: #c62828;
+      --shadow-sm: 0 1px 3px rgba(20, 35, 70, 0.12);
+      --shadow-md: 0 4px 10px rgba(22, 39, 78, 0.14);
+      --radius: 14px;
+      --toolbar-h: 72px;
+      font-family: "Roboto", Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); }
+    body { min-height: 100vh; }
+
+    .toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 60;
+      background: rgba(246, 249, 253, 0.94);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid rgba(82, 104, 135, 0.14);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .toolbar__inner {
+      min-height: var(--toolbar-h);
+      max-width: 1420px;
+      margin: 0 auto;
+      padding: 10px 18px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .toolbar__left {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 260px;
+      margin-right: 8px;
+    }
+
+    .brand__icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(180deg, #4f84ea, #2f6ddf);
+      color: #fff;
+      box-shadow: 0 3px 8px rgba(29, 77, 175, 0.35);
+      font-size: 22px;
+      flex: none;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+      color: #233042;
+      line-height: 1.1;
+    }
+
+    .brand p {
+      margin: 2px 0 0;
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.25;
+    }
+
+    .toolbar-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      height: 36px;
+      padding: 0 12px;
+      border-radius: 999px;
+      border: 1px solid var(--divider);
+      background: #fff;
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #90a4b8;
+      display: inline-block;
+      box-shadow: 0 0 0 3px rgba(144, 164, 184, 0.2);
+    }
+
+    .toolbar-chip.live .status-dot {
+      background: #2e7d32;
+      box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.2);
+    }
+
+    .toolbar-chip.error .status-dot {
+      background: #c62828;
+      box-shadow: 0 0 0 3px rgba(198, 40, 40, 0.18);
+    }
+
+    .control-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 10px;
+      border: 1px solid var(--divider);
+      border-radius: 12px;
+      background: #fff;
+      min-height: 42px;
+    }
+
+    .control-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .control-select {
+      border: none;
+      background: transparent;
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 500;
+      outline: none;
+      min-width: 148px;
+      cursor: pointer;
+      padding-right: 4px;
+    }
+
+    .stream-toggle {
+      --mdc-theme-primary: var(--primary);
+      --mdc-theme-on-primary: #fff;
+      border-radius: 999px !important;
+      height: 38px;
+      min-width: 144px;
+      box-shadow: 0 3px 8px rgba(47, 109, 223, 0.26);
+    }
+
+    .stream-toggle.live {
+      --mdc-theme-primary: #b71c1c;
+      box-shadow: 0 3px 8px rgba(168, 35, 35, 0.28);
+    }
+
+    .relay-wrap {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+    }
+
+    .relay-switch {
+      position: relative;
+      width: 44px;
+      height: 24px;
+      display: inline-block;
+      flex: none;
+    }
+
+    .relay-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .relay-slider {
+      position: absolute;
+      inset: 0;
+      border-radius: 999px;
+      background: #b8c8da;
+      transition: all 0.22s ease;
+      cursor: pointer;
+    }
+
+    .relay-slider::before {
+      content: "";
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      left: 3px;
+      top: 3px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+      transition: all 0.22s ease;
+    }
+
+    .relay-switch input:checked + .relay-slider {
+      background: #4f83ea;
+    }
+
+    .relay-switch input:checked + .relay-slider::before {
+      transform: translateX(20px);
+    }
+
+    .relay-status {
+      font-size: 13px;
+      font-weight: 600;
+      color: #55657b;
+      min-width: 30px;
+    }
+
+    .app-main {
+      max-width: 1420px;
+      margin: 0 auto;
+      padding: 18px;
+      display: grid;
+      gap: 16px;
+    }
+
+    .panel {
+      border-radius: var(--radius);
+      border: 1px solid rgba(97, 122, 159, 0.22);
+      box-shadow: var(--shadow-sm);
+      background: var(--surface);
+      overflow: hidden;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .panel:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+    }
+
+    .panel__head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--divider);
+      background: linear-gradient(180deg, #fefefe, #f7fafd);
+    }
+
+    .panel__title {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .panel__icon {
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #e9f0ff;
+      color: var(--primary-dark);
+      font-size: 20px;
+      flex: none;
+    }
+
+    .panel__title h2,
+    .panel__title h3 {
+      margin: 0;
+      font-size: 16px;
+      line-height: 1.2;
+      color: #213144;
+    }
+
+    .panel__title p {
+      margin: 3px 0 0;
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+
+    .panel__body {
+      padding: 14px 16px 16px;
+    }
+
+    .hero {
+      background: linear-gradient(130deg, rgba(241, 247, 255, 0.98), rgba(236, 244, 255, 0.98) 48%, rgba(246, 250, 255, 0.98));
+    }
+
+    .hero h2 {
+      margin: 0 0 10px;
+      font-size: clamp(22px, 2.2vw, 34px);
+      line-height: 1.25;
+      letter-spacing: 0.1px;
+      max-width: 34ch;
+      color: #243346;
+    }
+
+    .hero p {
+      margin: 0;
+      color: #5e728b;
+      max-width: 70ch;
+      line-height: 1.55;
+      font-size: 14px;
+    }
+
+    .hero-actions {
+      margin-top: 14px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .layout-grid {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+    }
+
+    .span-12 { grid-column: span 12; }
+    .span-8 { grid-column: span 8; }
+    .span-7 { grid-column: span 7; }
+    .span-5 { grid-column: span 5; }
+    .span-4 { grid-column: span 4; }
+
+    .metrics-grid {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .metric {
+      background: linear-gradient(180deg, #ffffff, #f8fbff);
+      border: 1px solid var(--divider);
+      border-radius: 12px;
+      padding: 12px;
+      min-height: 96px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: box-shadow 0.2s ease, transform 0.2s ease;
+    }
+
+    .metric:hover {
+      box-shadow: 0 4px 10px rgba(30, 55, 92, 0.12);
+      transform: translateY(-1px);
+    }
+
+    .metric__top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      color: #5f738f;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .metric__value {
+      font-size: clamp(26px, 3.3vw, 36px);
+      font-weight: 700;
+      line-height: 1;
+      color: #223145;
+      letter-spacing: -0.7px;
+    }
+
+    .metric.metric-danger { border-color: rgba(198, 40, 40, 0.32); background: linear-gradient(180deg, #fff8f8, #fff1f1); }
+
+    .numeric {
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum" 1;
+    }
+
+    .toolbar-actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .icon-btn {
+      --mdc-theme-primary: #496fbb;
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      border: 1px solid var(--divider);
+      background: #fff;
+      color: #496fbb;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+    }
+
+    .icon-btn:hover {
+      transform: translateY(-1px);
+      border-color: #aec0de;
+      box-shadow: 0 3px 8px rgba(28, 56, 102, 0.14);
+    }
+
+    .chart-box {
+      height: 330px;
+      position: relative;
+    }
+
+    .chart-box.small {
+      height: 300px;
+    }
+
+    .anomaly-tools {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+
+    .mdc-text-field {
+      --mdc-theme-primary: var(--primary);
+      min-width: 220px;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .anomaly-summary {
+      margin: 10px 0 0;
+      color: #60738b;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .result {
+      margin-bottom: 10px;
+      border-radius: 10px;
+      border: 1px solid var(--divider);
+      background: var(--surface-soft);
+      padding: 10px 12px;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      color: #3b4d66;
+    }
+
+    .result strong { display: block; color: #213144; font-size: 13px; margin-bottom: 2px; }
+    .result small { color: #5f748f; }
+    .result.ok { border-color: rgba(46, 125, 50, 0.28); background: rgba(46, 125, 50, 0.08); }
+    .result.warn { border-color: rgba(198, 40, 40, 0.35); background: rgba(198, 40, 40, 0.08); }
+    .result.error { border-color: rgba(198, 40, 40, 0.35); background: rgba(198, 40, 40, 0.08); }
+
+    .prediction-stack {
+      display: grid;
+      gap: 10px;
+    }
+
+    .prediction-item {
+      border: 1px solid var(--divider);
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: #fff;
+    }
+
+    .prediction-item strong {
+      display: block;
+      margin-bottom: 6px;
+      color: #4c617c;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .prediction-item .value {
+      font-size: 25px;
+      line-height: 1;
+      font-weight: 700;
+      color: #223145;
+    }
+
+    .prediction-item .value small {
+      font-size: 13px;
+      margin-left: 4px;
+      color: #6d8096;
+      font-weight: 500;
+    }
+
+    .prediction-item p {
+      margin: 6px 0 0;
+      color: #5f748f;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .prediction-item.success { border-color: rgba(46, 125, 50, 0.33); }
+    .prediction-item.warning { border-color: rgba(242, 153, 0, 0.34); }
+    .prediction-item.neutral { border-color: rgba(117, 133, 155, 0.4); }
+
+    .table-wrap {
+      border: 1px solid var(--divider);
+      border-radius: 10px;
+      overflow: hidden;
+      background: #fff;
+      max-height: 368px;
+      overflow-y: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      text-align: left;
+      background: #f3f7fd;
+      color: #5f748d;
+      font-weight: 600;
+      border-bottom: 1px solid var(--divider);
+      padding: 10px 12px;
+      white-space: nowrap;
+    }
+
+    tbody td {
+      border-bottom: 1px solid #ecf2f9;
+      padding: 10px 12px;
+      color: #2f4258;
+      white-space: nowrap;
+    }
+
+    tbody tr:hover td { background: #f9fbff; }
+    tbody tr.anomaly td { background: rgba(198, 40, 40, 0.06); }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+    }
+
+    .badge.ok { color: #2e7d32; background: rgba(46, 125, 50, 0.1); }
+    .badge.warn { color: #c62828; background: rgba(198, 40, 40, 0.1); }
+
+    .ops-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .sim-status {
+      font-size: 13px;
+      color: #5f748f;
+      min-height: 20px;
+      font-weight: 500;
+    }
+
+    .model-info {
+      margin-top: 12px;
+      display: none;
+      border: 1px solid var(--divider);
+      border-radius: 12px;
+      background: #fbfdff;
+      padding: 12px;
+    }
+
+    .model-info.open { display: block; }
+
+    .model-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .model-card {
+      border: 1px solid var(--divider);
+      border-radius: 10px;
+      background: #fff;
+      padding: 10px;
+    }
+
+    .model-card h4 {
+      margin: 0 0 8px;
+      font-size: 13px;
+      color: #2a3b52;
+    }
+
+    .model-card ul {
+      margin: 0;
+      padding-left: 18px;
+      color: #4f647d;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .loading {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: #60738b;
+      font-size: 13px;
+    }
+
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid #c6d3e5;
+      border-top-color: #4a78dd;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @media (max-width: 1240px) {
+      .span-8, .span-7, .span-5, .span-4 { grid-column: span 12; }
+      .metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .model-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 820px) {
+      .toolbar__inner {
+        grid-template-columns: 1fr;
+      }
+      .toolbar__left { gap: 10px; }
+      .control-select { min-width: 120px; }
+      .metrics-grid { grid-template-columns: 1fr; }
+      .app-main { padding: 12px; }
+      .brand { min-width: 0; }
+    }
+  </style>
 </head>
 <body>
-    <!-- ════════════════════════════════════════════════════════════════
-         TOP APP BAR
-         ════════════════════════════════════════════════════════════════ -->
-    <header class="top-app-bar">
-        <div class="top-app-bar__leading">
-            <div class="top-app-bar__icon">
-                <span class="material-icons-outlined">bolt</span>
-            </div>
-            <h1 class="top-app-bar__title">Smart Energy Monitor</h1>
+  <header class="toolbar">
+    <div class="toolbar__inner">
+      <div class="toolbar__left">
+        <div class="brand">
+          <span class="material-icons brand__icon">flash_on</span>
+          <div>
+            <h1>Smart Energy Monitor</h1>
+            <p>Live telemetry, relay control, and ML anomaly intelligence</p>
+          </div>
         </div>
-        
-        <div class="top-app-bar__spacer"></div>
-        
-        <div class="top-app-bar__actions">
-            <!-- Device Selector -->
-            <div class="device-selector">
-                <span class="material-icons-outlined">devices</span>
-                <select id="deviceSelect" onchange="changeDevice()">
-                    <option value="fridge">🧊 Fridge</option>
-                    <option value="ac_1">❄️ AC Unit 1</option>
-                    <option value="ac_2">❄️ AC Unit 2</option>
-                    <option value="boiler">🔥 Boiler</option>
-                    <option value="washing_machine">🧺 Washing Machine</option>
-                    <option value="dishwasher">🍽️ Dishwasher</option>
-                </select>
-            </div>
-            
-            <!-- Connection Status -->
-            <div class="status-chip offline" id="statusChip">
-                <span class="status-dot"></span>
-                <span id="statusText">Offline</span>
-            </div>
-            
-            <!-- Stream Toggle -->
-            <button class="btn btn--filled" id="streamBtn" onclick="toggleStream()">
-                <span class="material-icons-outlined">play_arrow</span>
-                Connect
-            </button>
-        </div>
-    </header>
-    
-    <!-- ════════════════════════════════════════════════════════════════
-         MAIN DASHBOARD
-         ════════════════════════════════════════════════════════════════ -->
-    <main class="main-container">
-        <div class="dashboard-grid">
-            
-            <!-- ═══════════════════════════════════════════════════════
-                 LIVE METRICS ROW
-                 ═══════════════════════════════════════════════════════ -->
-            <div class="metrics-row">
-                <div class="metric-card metric-card--primary">
-                    <div class="metric-card__header">
-                        <span class="metric-card__label">Voltage</span>
-                        <div class="metric-card__icon">
-                            <span class="material-icons-outlined">electric_bolt</span>
-                        </div>
-                    </div>
-                    <div>
-                        <span class="metric-card__value" id="voltage">--</span>
-                        <span class="metric-card__unit">V</span>
-                    </div>
-                </div>
-                
-                <div class="metric-card metric-card--primary">
-                    <div class="metric-card__header">
-                        <span class="metric-card__label">Current</span>
-                        <div class="metric-card__icon">
-                            <span class="material-icons-outlined">waves</span>
-                        </div>
-                    </div>
-                    <div>
-                        <span class="metric-card__value" id="current">--</span>
-                        <span class="metric-card__unit">A</span>
-                    </div>
-                </div>
-                
-                <div class="metric-card metric-card--warning" id="powerCard">
-                    <div class="metric-card__header">
-                        <span class="metric-card__label">Power</span>
-                        <div class="metric-card__icon">
-                            <span class="material-icons-outlined">speed</span>
-                        </div>
-                    </div>
-                    <div>
-                        <span class="metric-card__value" id="power">--</span>
-                        <span class="metric-card__unit">W</span>
-                    </div>
-                </div>
-                
-                <div class="metric-card metric-card--success">
-                    <div class="metric-card__header">
-                        <span class="metric-card__label">Energy</span>
-                        <div class="metric-card__icon">
-                            <span class="material-icons-outlined">battery_charging_full</span>
-                        </div>
-                    </div>
-                    <div>
-                        <span class="metric-card__value" id="energy">--</span>
-                        <span class="metric-card__unit">kWh</span>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- ═══════════════════════════════════════════════════════
-                 POWER CHART - Main Visualization
-                 ═══════════════════════════════════════════════════════ -->
-            <div class="card card--elevated card--power-chart">
-                <div class="card__header">
-                    <div class="card__headline">
-                        <div class="card__headline-icon">
-                            <span class="material-icons-outlined">show_chart</span>
-                        </div>
-                        <div class="card__headline-text">
-                            <h3>Real-Time Power Consumption</h3>
-                            <span>Last 100 readings · <span id="chartDeviceName">Fridge</span></span>
-                        </div>
-                    </div>
-                    <button class="btn btn--icon" onclick="clearChartData()" title="Clear chart">
-                        <span class="material-icons-outlined">delete_outline</span>
-                    </button>
-                </div>
-                <div class="card__content">
-                    <div class="chart-area chart-area--large">
-                        <canvas id="powerChart"></canvas>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- ═══════════════════════════════════════════════════════
-                 ML PREDICTIONS PANEL
-                 ═══════════════════════════════════════════════════════ -->
-            <div class="card card--ml-forecast">
-                <div class="card__header">
-                    <div class="card__headline">
-                        <div class="card__headline-icon" style="background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container);">
-                            <span class="material-icons-outlined">psychology</span>
-                        </div>
-                        <div class="card__headline-text">
-                            <h3>ML Predictions</h3>
-                            <span>Next hour forecast</span>
-                        </div>
-                    </div>
-                    <button class="btn btn--icon" onclick="loadPredictions()" title="Refresh predictions">
-                        <span class="material-icons-outlined">refresh</span>
-                    </button>
-                </div>
-                <div class="card__content">
-                    <div class="prediction-panel" id="predictionPanel">
-                        <div class="loading">
-                            <div class="spinner"></div>
-                            Loading predictions...
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- ═══════════════════════════════════════════════════════
-                 SECTION: ANALYSIS
-                 ═══════════════════════════════════════════════════════ -->
-            <div class="section-header">
-                <h2>Analysis & History</h2>
-                <div class="section-header__line"></div>
-            </div>
-            
-            <!-- ═══════════════════════════════════════════════════════
-                 ANOMALY DETECTION
-                 ═══════════════════════════════════════════════════════ -->
-            <div class="card card--anomaly">
-                <div class="card__header">
-                    <div class="card__headline">
-                        <div class="card__headline-icon" style="background: var(--md-sys-color-error-container); color: var(--md-sys-color-error);">
-                            <span class="material-icons-outlined">warning</span>
-                        </div>
-                        <div class="card__headline-text">
-                            <h3>Anomaly Detection</h3>
-                            <span>Check if a power reading is unusual</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="card__content">
-                    <div class="input-group">
-                        <div class="text-field">
-                            <input type="number" id="anomalyPower" placeholder="Enter power">
-                            <span class="text-field__suffix">W</span>
-                        </div>
-                        <button class="btn btn--filled-tonal" onclick="checkAnomaly()">
-                            <span class="material-icons-outlined">search</span>
-                            Check
-                        </button>
-                    </div>
-                    <div id="anomalyResult"></div>
-                    
-                    <div class="chart-area chart-area--small" style="margin-top: 20px;">
-                        <canvas id="anomalyChart"></canvas>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- ═══════════════════════════════════════════════════════
-                 RECENT HISTORY
-                 ═══════════════════════════════════════════════════════ -->
-            <div class="card card--history">
-                <div class="card__header">
-                    <div class="card__headline">
-                        <div class="card__headline-icon" style="background: var(--md-sys-color-surface-variant); color: var(--md-sys-color-on-surface-variant);">
-                            <span class="material-icons-outlined">history</span>
-                        </div>
-                        <div class="card__headline-text">
-                            <h3>Recent Readings</h3>
-                            <span>Last 15 measurements</span>
-                        </div>
-                    </div>
-                    <button class="btn btn--icon" onclick="loadHistory()" title="Refresh">
-                        <span class="material-icons-outlined">refresh</span>
-                    </button>
-                </div>
-                <div class="card__content" style="padding: 0; max-height: 400px; overflow-y: auto;">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Time</th>
-                                <th>Power</th>
-                                <th>Voltage</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody id="historyBody">
-                            <tr>
-                                <td colspan="4" class="loading">
-                                    <div class="spinner"></div>
-                                    Loading history...
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            
-            <!-- ═══════════════════════════════════════════════════════
-                 SECTION: CONTROLS
-                 ═══════════════════════════════════════════════════════ -->
-            <div class="section-header">
-                <h2>Device Controls</h2>
-                <div class="section-header__line"></div>
-            </div>
-            
-            <!-- ═══════════════════════════════════════════════════════
-                 CONTROL PANEL
-                 ═══════════════════════════════════════════════════════ -->
-            <div class="card card--controls">
-                <div class="card__content">
-                    <div class="control-row">
-                        <!-- Relay Control -->
-                        <div class="control-group">
-                            <span class="material-icons-outlined" style="color: var(--md-sys-color-on-surface-variant);">power_settings_new</span>
-                            <span class="control-label">Relay Power:</span>
-                            <label class="switch">
-                                <input type="checkbox" id="relaySwitch" onchange="toggleRelay()">
-                                <span class="switch__track"></span>
-                                <span class="switch__thumb"></span>
-                            </label>
-                            <span id="relayStatus" class="control-label" style="font-weight: 500;">OFF</span>
-                        </div>
-                        
-                        <div style="flex: 1;"></div>
-                        
-                        <!-- Simulate Data -->
-                        <div class="control-group">
-                            <button class="btn btn--outlined" onclick="simulateReadings()">
-                                <span class="material-icons-outlined">science</span>
-                                Add Test Data
-                            </button>
-                            <span id="simStatus" style="font-size: 13px; color: var(--md-sys-color-success);"></span>
-                        </div>
-                        
-                        <!-- Model Info -->
-                        <div class="control-group">
-                            <button class="btn btn--outlined" onclick="showModelInfo()">
-                                <span class="material-icons-outlined">info</span>
-                                Model Info
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-        </div>
-    </main>
-    
-    <!-- ════════════════════════════════════════════════════════════════
-         JAVASCRIPT
-         ════════════════════════════════════════════════════════════════ -->
-    <script>
-        // ══════════════════════════════════════════════════════════════
-        // STATE
-        // ══════════════════════════════════════════════════════════════
-        let eventSource = null;
-        let streaming = false;
-        let selectedDevice = 'fridge';
-        const MAX_POINTS = 100;
-        
-        const liveData = {
-            timestamps: [],
-            power: [],
-            voltage: [],
-            current: []
-        };
-        
-        let powerChart, anomalyChart;
-        
-        // ══════════════════════════════════════════════════════════════
-        // DEVICE SELECTION
-        // ══════════════════════════════════════════════════════════════
-        function changeDevice() {
-            selectedDevice = document.getElementById('deviceSelect').value;
-            document.getElementById('chartDeviceName').textContent = formatDeviceName(selectedDevice);
-            
-            // Clear and reload data for new device
-            clearChartData();
-            loadPredictions();
-            loadHistory();
-            loadAnomalyChart();
-        }
-        
-        function formatDeviceName(name) {
-            return name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-        }
-        
-        // ══════════════════════════════════════════════════════════════
-        // STREAMING
-        // ══════════════════════════════════════════════════════════════
-        function toggleStream() {
-            const btn = document.getElementById('streamBtn');
-            const chip = document.getElementById('statusChip');
-            const statusText = document.getElementById('statusText');
-            
-            if (streaming) {
-                // Stop streaming
-                if (eventSource) {
-                    eventSource.close();
-                    eventSource = null;
-                }
-                streaming = false;
-                btn.innerHTML = '<span class="material-icons-outlined">play_arrow</span> Connect';
-                btn.classList.remove('btn--error');
-                btn.classList.add('btn--filled');
-                chip.classList.remove('online');
-                chip.classList.add('offline');
-                statusText.textContent = 'Offline';
-            } else {
-                // Start streaming
-                eventSource = new EventSource('/stream');
-                
-                eventSource.onopen = () => {
-                    streaming = true;
-                    btn.innerHTML = '<span class="material-icons-outlined">stop</span> Disconnect';
-                    btn.classList.remove('btn--filled');
-                    btn.classList.add('btn--error');
-                    chip.classList.remove('offline');
-                    chip.classList.add('online');
-                    statusText.textContent = 'Live';
-                };
-                
-                eventSource.onmessage = (e) => {
-                    const data = JSON.parse(e.data);
-                    updateMetrics(data);
-                    updatePowerChart(data);
-                };
-                
-                eventSource.onerror = () => {
-                    chip.classList.remove('online');
-                    chip.classList.add('offline');
-                    statusText.textContent = 'Error';
-                };
-            }
-        }
-        
-        // ══════════════════════════════════════════════════════════════
-        // METRICS UPDATE
-        // ══════════════════════════════════════════════════════════════
-        function updateMetrics(data) {
-            document.getElementById('voltage').textContent = data.voltage?.toFixed(1) ?? '--';
-            document.getElementById('current').textContent = data.current?.toFixed(2) ?? '--';
-            document.getElementById('power').textContent = data.power?.toFixed(1) ?? '--';
-            document.getElementById('energy').textContent = data.energy?.toFixed(4) ?? '--';
-            
-            // Highlight anomalies
-            const powerCard = document.getElementById('powerCard');
-            if (data.anomaly) {
-                powerCard.classList.add('metric-card--error');
-                powerCard.classList.remove('metric-card--warning');
-            } else {
-                powerCard.classList.remove('metric-card--error');
-                powerCard.classList.add('metric-card--warning');
-            }
-        }
-        
-        // ══════════════════════════════════════════════════════════════
-        // CHARTS
-        // ══════════════════════════════════════════════════════════════
-        function initCharts() {
-            const chartConfig = {
-                responsive: true,
-                maintainAspectRatio: false,
-                animation: { duration: 200 },
-                plugins: {
-                    legend: { display: false }
-                }
-            };
-            
-            // Power Chart
-            powerChart = new Chart(document.getElementById('powerChart'), {
-                type: 'line',
-                data: {
-                    labels: [],
-                    datasets: [{
-                        label: 'Power (W)',
-                        data: [],
-                        borderColor: '#0061a4',
-                        backgroundColor: 'rgba(0, 97, 164, 0.1)',
-                        fill: true,
-                        tension: 0.4,
-                        pointRadius: 0,
-                        pointHoverRadius: 6,
-                        borderWidth: 2
-                    }]
-                },
-                options: {
-                    ...chartConfig,
-                    interaction: {
-                        intersect: false,
-                        mode: 'index'
-                    },
-                    scales: {
-                        x: {
-                            display: true,
-                            grid: { display: false },
-                            ticks: { maxTicksLimit: 8, color: '#73777f' }
-                        },
-                        y: {
-                            beginAtZero: true,
-                            grid: { color: 'rgba(115, 119, 127, 0.1)' },
-                            ticks: { color: '#73777f' }
-                        }
-                    },
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            backgroundColor: 'rgba(26, 28, 30, 0.9)',
-                            titleColor: '#fff',
-                            bodyColor: '#fff',
-                            padding: 12,
-                            cornerRadius: 8,
-                            displayColors: false
-                        }
-                    }
-                }
-            });
-            
-            // Anomaly Chart
-            anomalyChart = new Chart(document.getElementById('anomalyChart'), {
-                type: 'scatter',
-                data: {
-                    datasets: [{
-                        label: 'Normal',
-                        data: [],
-                        backgroundColor: 'rgba(0, 109, 59, 0.6)',
-                        pointRadius: 6
-                    }, {
-                        label: 'Anomaly',
-                        data: [],
-                        backgroundColor: 'rgba(186, 26, 26, 0.8)',
-                        pointRadius: 8
-                    }]
-                },
-                options: {
-                    ...chartConfig,
-                    plugins: {
-                        legend: {
-                            display: true,
-                            position: 'top',
-                            labels: { usePointStyle: true, padding: 16 }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            title: { display: true, text: 'Reading #', color: '#73777f' },
-                            grid: { color: 'rgba(115, 119, 127, 0.1)' },
-                            ticks: { color: '#73777f' }
-                        },
-                        y: {
-                            title: { display: true, text: 'Power (W)', color: '#73777f' },
-                            grid: { color: 'rgba(115, 119, 127, 0.1)' },
-                            ticks: { color: '#73777f' }
-                        }
-                    }
-                }
-            });
-        }
-        
-        function updatePowerChart(data) {
-            const time = new Date(data.timestamp || Date.now()).toLocaleTimeString();
-            
-            liveData.timestamps.push(time);
-            liveData.power.push(data.power || 0);
-            
-            if (liveData.timestamps.length > MAX_POINTS) {
-                liveData.timestamps.shift();
-                liveData.power.shift();
-            }
-            
-            powerChart.data.labels = liveData.timestamps;
-            powerChart.data.datasets[0].data = liveData.power;
-            powerChart.update('none');
-        }
-        
-        function clearChartData() {
-            liveData.timestamps = [];
-            liveData.power = [];
-            liveData.voltage = [];
-            liveData.current = [];
-            
-            powerChart.data.labels = [];
-            powerChart.data.datasets[0].data = [];
-            powerChart.update();
-        }
-        
-        // ══════════════════════════════════════════════════════════════
-        // ML PREDICTIONS
-        // ══════════════════════════════════════════════════════════════
-        async function loadPredictions() {
-            const panel = document.getElementById('predictionPanel');
-            panel.innerHTML = '<div class="loading"><div class="spinner"></div>Loading predictions...</div>';
-            
-            try {
-                const [powerRes, onoffRes, historyRes] = await Promise.all([
-                    fetch(`/ml/predict/${selectedDevice}`),
-                    fetch(`/ml/predict-onoff/${selectedDevice}`),
-                    fetch(`/ml/history/${selectedDevice}`)
-                ]);
-                
-                const power = await powerRes.json();
-                const onoff = await onoffRes.json();
-                const history = await historyRes.json();
-                
-                let html = '';
-                
-                // Power Prediction
-                if (power.error) {
-                    html += `
-                        <div class="prediction-item">
-                            <div class="prediction-item__header">
-                                <span class="prediction-item__label">Power Forecast</span>
-                                <span class="prediction-item__badge badge--warning">Needs Data</span>
-                            </div>
-                            <div class="prediction-item__value">--<small> W</small></div>
-                            <div class="prediction-item__meta">Add more readings to enable predictions</div>
-                        </div>
-                    `;
-                } else {
-                    html += `
-                        <div class="prediction-item">
-                            <div class="prediction-item__header">
-                                <span class="prediction-item__label">Next Hour Power</span>
-                                <span class="prediction-item__badge badge--success">Predicted</span>
-                            </div>
-                            <div class="prediction-item__value">${power.predicted_power}<small> W</small></div>
-                            <div class="prediction-item__meta">Based on ML model analysis</div>
-                        </div>
-                    `;
-                }
-                
-                // ON/OFF Prediction
-                if (!onoff.error) {
-                    const badgeClass = onoff.will_be_on ? 'badge--success' : 'badge--warning';
-                    const statusText = onoff.will_be_on ? 'Active' : 'Idle';
-                    html += `
-                        <div class="prediction-item">
-                            <div class="prediction-item__header">
-                                <span class="prediction-item__label">Activity Forecast</span>
-                                <span class="prediction-item__badge ${badgeClass}">${statusText}</span>
-                            </div>
-                            <div class="prediction-item__value">${onoff.confidence}<small>%</small></div>
-                            <div class="prediction-item__meta">Confidence level for next hour</div>
-                        </div>
-                    `;
-                }
-                
-                // History count
-                html += `
-                    <div class="prediction-item">
-                        <div class="prediction-item__header">
-                            <span class="prediction-item__label">Data Points</span>
-                        </div>
-                        <div class="prediction-item__value">${history.count}<small> readings</small></div>
-                        <div class="prediction-item__meta">In prediction buffer</div>
-                    </div>
-                `;
-                
-                panel.innerHTML = html;
-                
-            } catch (e) {
-                panel.innerHTML = `<div class="empty-state"><span class="material-icons-outlined">error_outline</span><p>Error loading predictions</p></div>`;
-            }
-        }
-        
-        // ══════════════════════════════════════════════════════════════
-        // ANOMALY DETECTION
-        // ══════════════════════════════════════════════════════════════
-        async function checkAnomaly() {
-            const power = parseFloat(document.getElementById('anomalyPower').value);
-            const resultDiv = document.getElementById('anomalyResult');
-            
-            if (isNaN(power)) {
-                resultDiv.innerHTML = '<div class="result-banner result-banner--error"><span class="material-icons-outlined">error</span><div class="result-banner__content"><strong>Invalid Input</strong><span>Please enter a valid power value</span></div></div>';
-                return;
-            }
-            
-            try {
-                const res = await fetch(`/ml/anomaly/${selectedDevice}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ power })
-                });
-                const data = await res.json();
-                
-                if (data.is_anomaly) {
-                    resultDiv.innerHTML = `
-                        <div class="result-banner result-banner--error">
-                            <span class="material-icons-outlined">warning</span>
-                            <div class="result-banner__content">
-                                <strong>⚠️ Anomaly Detected</strong>
-                                <span>Z-score: ${data.z_score} · Expected: 0 - ${data.stats?.threshold_high || '--'} W<br>
-                                Reason: ${data.reason?.join(', ') || 'Unusual consumption pattern'}</span>
-                            </div>
-                        </div>
-                    `;
-                } else {
-                    resultDiv.innerHTML = `
-                        <div class="result-banner result-banner--success">
-                            <span class="material-icons-outlined">check_circle</span>
-                            <div class="result-banner__content">
-                                <strong>✓ Normal Reading</strong>
-                                <span>Z-score: ${data.z_score} · Mean: ${data.stats?.mean || '--'} W · Std: ${data.stats?.std || '--'} W</span>
-                            </div>
-                        </div>
-                    `;
-                }
-                
-                loadAnomalyChart();
-                
-            } catch (e) {
-                resultDiv.innerHTML = '<div class="result-banner result-banner--error"><span class="material-icons-outlined">error</span><div class="result-banner__content"><strong>Error</strong><span>Could not check anomaly status</span></div></div>';
-            }
-        }
-        
-        async function loadAnomalyChart() {
-            try {
-                const res = await fetch(`/ml/history/${selectedDevice}`);
-                const data = await res.json();
-                
-                const normal = [];
-                const anomalies = [];
-                
-                // Get threshold from model
-                let threshold = 100;
-                try {
-                    const infoRes = await fetch('/ml/info');
-                    const info = await infoRes.json();
-                    // Use device-specific threshold if available
-                } catch (e) {}
-                
-                if (data.readings) {
-                    data.readings.forEach((r, i) => {
-                        const point = { x: i, y: r.power || 0 };
-                        // Simple threshold for visualization
-                        if (r.power > threshold * 3) {
-                            anomalies.push(point);
-                        } else {
-                            normal.push(point);
-                        }
-                    });
-                }
-                
-                anomalyChart.data.datasets[0].data = normal;
-                anomalyChart.data.datasets[1].data = anomalies;
-                anomalyChart.update();
-            } catch (e) {
-                console.error('Anomaly chart error:', e);
-            }
-        }
-        
-        // ══════════════════════════════════════════════════════════════
-        // HISTORY
-        // ══════════════════════════════════════════════════════════════
-        async function loadHistory() {
-            const tbody = document.getElementById('historyBody');
-            
-            try {
-                const res = await fetch('/history?limit=15');
-                const data = await res.json();
-                
-                if (data.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="4" class="empty-state"><span class="material-icons-outlined">inbox</span><p>No readings yet</p></td></tr>';
-                    return;
-                }
-                
-                const reversed = [...data].reverse();
-                
-                tbody.innerHTML = reversed.map(row => `
-                    <tr class="${row.anomaly === 'True' ? 'anomaly-row' : ''}">
-                        <td>${formatTime(row.timestamp)}</td>
-                        <td><strong>${parseFloat(row.power || 0).toFixed(1)}</strong> W</td>
-                        <td>${parseFloat(row.voltage || 0).toFixed(1)} V</td>
-                        <td>
-                            ${row.anomaly === 'True' 
-                                ? '<span class="status-badge status-badge--anomaly"><span class="material-icons-outlined" style="font-size:14px">warning</span>Anomaly</span>' 
-                                : '<span class="status-badge status-badge--normal"><span class="material-icons-outlined" style="font-size:14px">check</span>Normal</span>'
-                            }
-                        </td>
-                    </tr>
-                `).join('');
-                
-            } catch (e) {
-                tbody.innerHTML = '<tr><td colspan="4" class="empty-state"><span class="material-icons-outlined">error_outline</span><p>Error loading history</p></td></tr>';
-            }
-        }
-        
-        function formatTime(iso) {
-            if (!iso) return '--';
-            return new Date(iso).toLocaleTimeString();
-        }
-        
-        // ══════════════════════════════════════════════════════════════
-        // RELAY CONTROL
-        // ══════════════════════════════════════════════════════════════
-        async function toggleRelay() {
-            const on = document.getElementById('relaySwitch').checked;
-            try {
-                await fetch('/relay', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ on })
-                });
-                document.getElementById('relayStatus').textContent = on ? 'ON' : 'OFF';
-                document.getElementById('relayStatus').style.color = on ? 'var(--md-sys-color-success)' : '';
-            } catch (e) {
-                console.error('Relay error:', e);
-            }
-        }
-        
-        async function loadRelayState() {
-            try {
-                const res = await fetch('/relay');
-                const data = await res.json();
-                document.getElementById('relaySwitch').checked = data.on;
-                document.getElementById('relayStatus').textContent = data.on ? 'ON' : 'OFF';
-                document.getElementById('relayStatus').style.color = data.on ? 'var(--md-sys-color-success)' : '';
-            } catch (e) {}
-        }
-        
-        // ══════════════════════════════════════════════════════════════
-        // SIMULATE DATA
-        // ══════════════════════════════════════════════════════════════
-        async function simulateReadings() {
-            const status = document.getElementById('simStatus');
-            
-            const basePower = {
-                fridge: 35, ac_1: 800, ac_2: 600, boiler: 1500,
-                washing_machine: 400, dishwasher: 800
-            };
-            
-            const base = basePower[selectedDevice] || 100;
-            const readings = Array.from({length: 10}, () => 
-                Math.max(0, base + (Math.random() - 0.5) * base * 0.4)
-            );
-            
-            try {
-                const res = await fetch('/ml/simulate', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ appliance: selectedDevice, readings })
-                });
-                const data = await res.json();
-                status.textContent = `✓ Added ${data.readings_added} readings`;
-                status.style.color = 'var(--md-sys-color-success)';
-                
-                // Refresh predictions
-                loadPredictions();
-                loadAnomalyChart();
-                
-                setTimeout(() => { status.textContent = ''; }, 3000);
-            } catch (e) {
-                status.textContent = 'Error adding data';
-                status.style.color = 'var(--md-sys-color-error)';
-            }
-        }
-        
-        // ══════════════════════════════════════════════════════════════
-        // MODEL INFO
-        // ══════════════════════════════════════════════════════════════
-        async function showModelInfo() {
-            try {
-                const res = await fetch('/ml/info');
-                const data = await res.json();
-                
-                alert(`ML Models Loaded:
-                
-Power Predictors: ${data.power_predictors?.length || 0}
-  → ${data.power_predictors?.join(', ') || 'None'}
-  
-Anomaly Detectors: ${data.anomaly_detectors?.length || 0}
-  → ${data.anomaly_detectors?.join(', ') || 'None'}
-  
-ON/OFF Classifiers: ${data.classifiers?.length || 0}
-  → ${data.classifiers?.join(', ') || 'None'}
 
-Models Path: ${data.models_dir || 'N/A'}`);
-            } catch (e) {
-                alert('Error loading model info');
-            }
+        <button class="mdc-button mdc-button--raised stream-toggle" id="streamBtn" onclick="toggleStream()">
+          <span class="mdc-button__ripple"></span>
+          <span class="material-icons mdc-button__icon" id="streamIcon" aria-hidden="true">play_arrow</span>
+          <span class="mdc-button__label" id="streamLabel">Go Live</span>
+        </button>
+
+        <div class="control-group">
+          <span class="control-label"><span class="material-icons" style="font-size:16px;">developer_board</span>Device</span>
+          <select class="control-select" id="deviceSelect" onchange="changeDevice()">
+            <option value="fridge">Fridge</option>
+            <option value="ac_1">AC Unit 1</option>
+            <option value="ac_2">AC Unit 2</option>
+            <option value="boiler">Boiler</option>
+            <option value="washing_machine">Washing Machine</option>
+            <option value="dishwasher">Dishwasher</option>
+          </select>
+        </div>
+
+        <div class="control-group relay-wrap" aria-label="Relay control">
+          <span class="control-label"><span class="material-icons" style="font-size:16px;">power_settings_new</span>Relay</span>
+          <label class="relay-switch">
+            <input type="checkbox" id="relaySwitch" onchange="toggleRelay()">
+            <span class="relay-slider"></span>
+          </label>
+          <span class="relay-status" id="relayStatus">OFF</span>
+        </div>
+      </div>
+
+      <div class="toolbar-actions">
+        <div class="toolbar-chip" id="statusChip">
+          <span class="status-dot"></span>
+          <span id="statusText">Offline</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="app-main">
+    <section class="mdc-card panel hero">
+      <div class="panel__body">
+        <h2>Monitor appliance behavior in real time with confidence-driven anomaly checks.</h2>
+        <p>
+          The dashboard keeps frequently used controls in a sticky toolbar and organizes analysis into clear panels:
+          live stream and power trend first, anomaly timeline next, then model diagnostics for operational follow-up.
+        </p>
+        <div class="hero-actions">
+          <button class="mdc-button mdc-button--outlined" onclick="toggleStream()">
+            <span class="mdc-button__ripple"></span>
+            <span class="material-icons mdc-button__icon" aria-hidden="true">sensors</span>
+            <span class="mdc-button__label">Toggle Stream</span>
+          </button>
+          <button class="mdc-button mdc-button--outlined" onclick="document.getElementById('anomalyPower').focus()">
+            <span class="mdc-button__ripple"></span>
+            <span class="material-icons mdc-button__icon" aria-hidden="true">search</span>
+            <span class="mdc-button__label">Jump to Anomaly Check</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section class="metrics-grid">
+      <article class="metric">
+        <div class="metric__top"><span>Voltage</span><span class="material-icons">bolt</span></div>
+        <div class="metric__value numeric"><span id="voltage">--</span><span style="font-size:14px;font-weight:500;margin-left:4px;color:#5c718b;">V</span></div>
+      </article>
+      <article class="metric">
+        <div class="metric__top"><span>Current</span><span class="material-icons">waves</span></div>
+        <div class="metric__value numeric"><span id="current">--</span><span style="font-size:14px;font-weight:500;margin-left:4px;color:#5c718b;">A</span></div>
+      </article>
+      <article class="metric" id="powerTile">
+        <div class="metric__top"><span>Power</span><span class="material-icons">speed</span></div>
+        <div class="metric__value numeric"><span id="power">--</span><span style="font-size:14px;font-weight:500;margin-left:4px;color:#5c718b;">W</span></div>
+      </article>
+      <article class="metric">
+        <div class="metric__top"><span>Energy</span><span class="material-icons">battery_charging_full</span></div>
+        <div class="metric__value numeric"><span id="energy">--</span><span style="font-size:14px;font-weight:500;margin-left:4px;color:#5c718b;">kWh</span></div>
+      </article>
+    </section>
+
+    <section class="layout-grid">
+      <article class="mdc-card panel span-8">
+        <div class="panel__head">
+          <div class="panel__title">
+            <span class="material-icons panel__icon">show_chart</span>
+            <div>
+              <h3>Real-Time Power Trend</h3>
+              <p>Live stream, latest 100 readings</p>
+            </div>
+          </div>
+          <button class="icon-btn" onclick="clearChartData()" title="Clear chart">
+            <span class="material-icons" style="font-size:20px;">delete</span>
+          </button>
+        </div>
+        <div class="panel__body">
+          <div class="chart-box"><canvas id="powerChart"></canvas></div>
+        </div>
+      </article>
+
+      <article class="mdc-card panel span-4">
+        <div class="panel__head">
+          <div class="panel__title">
+            <span class="material-icons panel__icon">psychology</span>
+            <div>
+              <h3>ML Predictions</h3>
+              <p>Next-hour forecast and confidence</p>
+            </div>
+          </div>
+          <button class="icon-btn" onclick="loadPredictions()" title="Refresh predictions">
+            <span class="material-icons" style="font-size:20px;">refresh</span>
+          </button>
+        </div>
+        <div class="panel__body" id="predictionPanel">
+          <div class="loading"><span class="spinner"></span>Loading predictions...</div>
+        </div>
+      </article>
+
+      <article class="mdc-card panel span-7">
+        <div class="panel__head">
+          <div class="panel__title">
+            <span class="material-icons panel__icon">warning</span>
+            <div>
+              <h3>Anomaly Timeline</h3>
+              <p>Time-series chart with dynamic 3-sigma threshold</p>
+            </div>
+          </div>
+        </div>
+        <div class="panel__body">
+          <div class="anomaly-tools">
+            <label class="mdc-text-field mdc-text-field--filled" style="height:48px;">
+              <span class="mdc-text-field__ripple"></span>
+              <span class="mdc-floating-label">Power value (W)</span>
+              <input class="mdc-text-field__input" type="number" id="anomalyPower" aria-label="Power value for anomaly check">
+              <span class="mdc-line-ripple"></span>
+            </label>
+            <button class="mdc-button mdc-button--raised" onclick="checkAnomaly()">
+              <span class="mdc-button__ripple"></span>
+              <span class="material-icons mdc-button__icon" aria-hidden="true">search</span>
+              <span class="mdc-button__label">Check</span>
+            </button>
+            <button class="mdc-button mdc-button--outlined" onclick="loadAnomalyChart()">
+              <span class="mdc-button__ripple"></span>
+              <span class="material-icons mdc-button__icon" aria-hidden="true">refresh</span>
+              <span class="mdc-button__label">Refresh Baseline</span>
+            </button>
+          </div>
+          <div id="anomalyResult"></div>
+          <div class="chart-box small"><canvas id="anomalyChart"></canvas></div>
+          <p class="anomaly-summary numeric" id="anomalySummary">Awaiting historical data to calibrate threshold.</p>
+        </div>
+      </article>
+
+      <article class="mdc-card panel span-5">
+        <div class="panel__head">
+          <div class="panel__title">
+            <span class="material-icons panel__icon">history</span>
+            <div>
+              <h3>Recent Readings</h3>
+              <p>Last 15 rows from backend history</p>
+            </div>
+          </div>
+          <button class="icon-btn" onclick="loadHistory()" title="Refresh readings">
+            <span class="material-icons" style="font-size:20px;">refresh</span>
+          </button>
+        </div>
+        <div class="panel__body">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Power</th>
+                  <th>Voltage</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="historyBody">
+                <tr><td colspan="4"><div class="loading"><span class="spinner"></span>Loading...</div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </article>
+
+      <article class="mdc-card panel span-12">
+        <div class="panel__head">
+          <div class="panel__title">
+            <span class="material-icons panel__icon">tune</span>
+            <div>
+              <h3>Operations &amp; Model Tools</h3>
+              <p>Inject synthetic readings and inspect currently loaded model families</p>
+            </div>
+          </div>
+        </div>
+        <div class="panel__body">
+          <div class="ops-row">
+            <button class="mdc-button mdc-button--raised" onclick="simulateReadings()">
+              <span class="mdc-button__ripple"></span>
+              <span class="material-icons mdc-button__icon" aria-hidden="true">science</span>
+              <span class="mdc-button__label">Add Test Data</span>
+            </button>
+            <button class="mdc-button mdc-button--outlined" id="modelInfoBtn" onclick="showModelInfo()">
+              <span class="mdc-button__ripple"></span>
+              <span class="material-icons mdc-button__icon" aria-hidden="true">info</span>
+              <span class="mdc-button__label">Show Model Info</span>
+            </button>
+            <span id="simStatus" class="sim-status"></span>
+          </div>
+          <section id="modelInfoPanel" class="model-info"></section>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/material-components-web@14.0.0/dist/material-components-web.min.js"></script>
+  <script>
+    let eventSource = null;
+    let streaming = false;
+    let selectedDevice = "fridge";
+    const MAX_POINTS = 100;
+
+    const liveData = { timestamps: [], power: [] };
+    let powerChart = null;
+    let anomalyChart = null;
+
+    function initMdc() {
+      document.querySelectorAll(".mdc-button").forEach((button) => {
+        if (window.mdc && window.mdc.ripple) {
+          new mdc.ripple.MDCRipple(button);
         }
-        
-        // ══════════════════════════════════════════════════════════════
-        // INITIALIZATION
-        // ══════════════════════════════════════════════════════════════
-        document.addEventListener('DOMContentLoaded', () => {
-            initCharts();
-            loadRelayState();
-            loadPredictions();
-            loadHistory();
-            loadAnomalyChart();
+      });
+    }
+
+    function setStreamState(state, reason = "offline") {
+      const btn = document.getElementById("streamBtn");
+      const icon = document.getElementById("streamIcon");
+      const label = document.getElementById("streamLabel");
+      const chip = document.getElementById("statusChip");
+      const text = document.getElementById("statusText");
+      streaming = state;
+
+      if (state) {
+        btn.classList.add("live");
+        icon.textContent = "stop";
+        label.textContent = "Stop Stream";
+        chip.className = "toolbar-chip live";
+        text.textContent = "Live";
+        return;
+      }
+
+      btn.classList.remove("live");
+      icon.textContent = "play_arrow";
+      chip.className = reason === "error" ? "toolbar-chip error" : "toolbar-chip";
+      text.textContent = reason === "error" ? "Error" : "Offline";
+      label.textContent = reason === "error" ? "Retry" : "Go Live";
+    }
+
+    function changeDevice() {
+      selectedDevice = document.getElementById("deviceSelect").value;
+      clearChartData();
+      loadPredictions();
+      loadHistory();
+      loadAnomalyChart();
+    }
+
+    function toggleStream() {
+      if (streaming) {
+        if (eventSource) {
+          eventSource.close();
+          eventSource = null;
+        }
+        setStreamState(false);
+        return;
+      }
+
+      eventSource = new EventSource("/stream");
+
+      eventSource.onopen = () => {
+        setStreamState(true);
+      };
+
+      eventSource.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        updateMetrics(data);
+        updatePowerChart(data);
+        if (data.relay !== undefined) {
+          document.getElementById("relaySwitch").checked = data.relay;
+          updateRelayLabel(data.relay);
+        }
+      };
+
+      eventSource.onerror = () => {
+        if (eventSource) {
+          eventSource.close();
+          eventSource = null;
+        }
+        setStreamState(false, "error");
+      };
+    }
+
+    function updateMetrics(data) {
+      const voltage = Number(data.voltage);
+      const current = Number(data.current);
+      const power = Number(data.power);
+      const energy = Number(data.energy);
+
+      document.getElementById("voltage").textContent = Number.isFinite(voltage) ? voltage.toFixed(1) : "--";
+      document.getElementById("current").textContent = Number.isFinite(current) ? current.toFixed(2) : "--";
+      document.getElementById("power").textContent = Number.isFinite(power) ? power.toFixed(1) : "--";
+      document.getElementById("energy").textContent = Number.isFinite(energy) ? energy.toFixed(4) : "--";
+
+      const powerTile = document.getElementById("powerTile");
+      if (data.anomaly) {
+        powerTile.classList.add("metric-danger");
+      } else {
+        powerTile.classList.remove("metric-danger");
+      }
+    }
+
+    function initCharts() {
+      powerChart = new Chart(document.getElementById("powerChart"), {
+        type: "line",
+        data: {
+          labels: [],
+          datasets: [{
+            label: "Power (W)",
+            data: [],
+            borderColor: "#2f6ddf",
+            backgroundColor: "rgba(47,109,223,0.13)",
+            fill: true,
+            tension: 0.25,
+            pointRadius: 0,
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: { duration: 130 },
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            x: {
+              title: { display: true, text: "Time" },
+              grid: { display: false },
+              ticks: { maxTicksLimit: 7 }
+            },
+            y: {
+              title: { display: true, text: "Power (W)" },
+              beginAtZero: true,
+              grid: { color: "#dce5f0" }
+            }
+          }
+        }
+      });
+
+      anomalyChart = new Chart(document.getElementById("anomalyChart"), {
+        type: "line",
+        data: {
+          labels: [],
+          datasets: [
+            {
+              label: "Measured power",
+              data: [],
+              borderColor: "#2f6ddf",
+              backgroundColor: "rgba(47,109,223,0.16)",
+              fill: true,
+              borderWidth: 2,
+              tension: 0.22,
+              pointRadius: 4,
+              pointHoverRadius: 5,
+              pointBackgroundColor: [],
+              pointBorderColor: []
+            },
+            {
+              label: "Anomaly threshold (+3σ)",
+              data: [],
+              borderColor: "#f29900",
+              borderDash: [7, 5],
+              borderWidth: 2,
+              tension: 0,
+              pointRadius: 0,
+              fill: false
+            },
+            {
+              label: "Checked reading",
+              data: [],
+              showLine: false,
+              pointRadius: 7,
+              pointHoverRadius: 8,
+              pointStyle: "triangle",
+              backgroundColor: "#1b5e20",
+              borderColor: "#1b5e20"
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: { duration: 180 },
+          plugins: {
+            legend: {
+              display: true,
+              position: "top",
+              labels: { usePointStyle: true, boxWidth: 9 }
+            }
+          },
+          scales: {
+            x: {
+              title: { display: true, text: "Time" },
+              grid: { color: "#e6edf6" }
+            },
+            y: {
+              title: { display: true, text: "Power (W)" },
+              beginAtZero: true,
+              grid: { color: "#dce5f0" }
+            }
+          }
+        }
+      });
+    }
+
+    function updatePowerChart(data) {
+      const time = new Date(data.timestamp || Date.now()).toLocaleTimeString();
+      liveData.timestamps.push(time);
+      liveData.power.push(data.power || 0);
+
+      if (liveData.timestamps.length > MAX_POINTS) {
+        liveData.timestamps.shift();
+        liveData.power.shift();
+      }
+
+      powerChart.data.labels = liveData.timestamps;
+      powerChart.data.datasets[0].data = liveData.power;
+      powerChart.update("none");
+    }
+
+    function clearChartData() {
+      liveData.timestamps = [];
+      liveData.power = [];
+      powerChart.data.labels = [];
+      powerChart.data.datasets[0].data = [];
+      powerChart.update();
+    }
+
+    function renderPredictionItem({ label, value, unit = "", tone = "neutral", meta = "" }) {
+      const formattedValue = Number.isFinite(value)
+        ? (unit === "readings" ? Math.round(value) : Number(value).toFixed(unit === "%" ? 1 : 2))
+        : value;
+      const unitHtml = unit ? `<small>${unit}</small>` : "";
+      return `
+        <article class="prediction-item ${tone}">
+          <strong>${label}</strong>
+          <div class="value numeric">${formattedValue}${unitHtml}</div>
+          <p>${meta}</p>
+        </article>
+      `;
+    }
+
+    async function loadPredictions() {
+      const panel = document.getElementById("predictionPanel");
+      panel.innerHTML = '<div class="loading"><span class="spinner"></span>Fetching forecast...</div>';
+
+      try {
+        const [powerRes, onoffRes, historyRes] = await Promise.all([
+          fetch(`/ml/predict/${selectedDevice}`),
+          fetch(`/ml/predict-onoff/${selectedDevice}`),
+          fetch(`/ml/history/${selectedDevice}`)
+        ]);
+
+        const power = await powerRes.json();
+        const onoff = await onoffRes.json();
+        const history = await historyRes.json();
+        const cards = [];
+
+        if (power.error) {
+          cards.push(renderPredictionItem({
+            label: "Power forecast",
+            value: "--",
+            unit: "W",
+            tone: "warning",
+            meta: "Needs more history to estimate reliably"
+          }));
+        } else {
+          cards.push(renderPredictionItem({
+            label: "Power forecast",
+            value: power.predicted_power,
+            unit: "W",
+            tone: "success",
+            meta: "Estimated usage for the next hour"
+          }));
+        }
+
+        if (!onoff.error) {
+          cards.push(renderPredictionItem({
+            label: "Activity confidence",
+            value: onoff.confidence,
+            unit: "%",
+            tone: onoff.will_be_on ? "success" : "warning",
+            meta: onoff.will_be_on ? "Likely active in next hour" : "Likely idle in next hour"
+          }));
+        }
+
+        cards.push(renderPredictionItem({
+          label: "Data points",
+          value: history.count || 0,
+          unit: "readings",
+          tone: "neutral",
+          meta: "Training records available for this device"
+        }));
+
+        panel.innerHTML = `<div class="prediction-stack">${cards.join("")}</div>`;
+      } catch (error) {
+        panel.innerHTML = '<div class="result error"><span class="material-icons">error</span><div><strong>Could not load predictions</strong><small>Check backend and retry.</small></div></div>';
+      }
+    }
+
+    function computeStats(values) {
+      if (!values.length) {
+        return { mean: 0, std: 0 };
+      }
+      const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
+      const variance = values.reduce((sum, value) => sum + Math.pow(value - mean, 2), 0) / values.length;
+      return { mean, std: Math.sqrt(variance) };
+    }
+
+    function setAnomalyResult(type, title, details) {
+      const icon = type === "ok" ? "check_circle" : type === "error" ? "error" : "warning";
+      document.getElementById("anomalyResult").innerHTML = `
+        <div class="result ${type}">
+          <span class="material-icons">${icon}</span>
+          <div>
+            <strong>${title}</strong>
+            <small>${details}</small>
+          </div>
+        </div>
+      `;
+    }
+
+    async function checkAnomaly() {
+      const power = parseFloat(document.getElementById("anomalyPower").value);
+      if (Number.isNaN(power)) {
+        setAnomalyResult("error", "Invalid input", "Enter a numeric power value before checking.");
+        return;
+      }
+
+      try {
+        const response = await fetch(`/ml/anomaly/${selectedDevice}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ power })
         });
-    </script>
+        const data = await response.json();
+
+        if (data.is_anomaly) {
+          setAnomalyResult(
+            "warn",
+            "Anomaly detected",
+            `Z-score: ${data.z_score} | ${data.reason?.join(", ") || "Unusual behavior"}`
+          );
+        } else {
+          setAnomalyResult(
+            "ok",
+            "Normal reading",
+            `Z-score: ${data.z_score} | Mean: ${data.stats?.mean || "--"} W`
+          );
+        }
+
+        loadAnomalyChart(power);
+      } catch (error) {
+        setAnomalyResult("error", "Request failed", "Could not check anomaly right now.");
+      }
+    }
+
+    function formatLabel(reading, index) {
+      if (reading.timestamp) {
+        return new Date(reading.timestamp).toLocaleTimeString();
+      }
+      return `R${index + 1}`;
+    }
+
+    async function loadAnomalyChart(candidatePower = null) {
+      try {
+        const response = await fetch(`/ml/history/${selectedDevice}`);
+        const data = await response.json();
+        const readings = data.readings || [];
+        const summary = document.getElementById("anomalySummary");
+
+        if (!readings.length) {
+          anomalyChart.data.labels = [];
+          anomalyChart.data.datasets.forEach((dataset) => {
+            dataset.data = [];
+          });
+          anomalyChart.update();
+          summary.textContent = "Awaiting historical data to calibrate threshold.";
+          return;
+        }
+
+        const labels = readings.map((reading, index) => formatLabel(reading, index));
+        const values = readings.map((reading) => Number(reading.power) || 0);
+        const { mean, std } = computeStats(values);
+        const sigma = std || 1;
+        const upperThreshold = mean + 3 * sigma;
+
+        const anomalyFlags = values.map((value) => Math.abs((value - mean) / sigma) >= 3);
+        const pointColors = anomalyFlags.map((isAnomaly) => (isAnomaly ? "#c62828" : "#2f6ddf"));
+
+        let chartLabels = [...labels];
+        const trendData = [...values];
+        const thresholdData = Array(values.length).fill(upperThreshold);
+        const checkedReadingData = Array(values.length).fill(null);
+
+        if (Number.isFinite(candidatePower)) {
+          chartLabels.push("Check");
+          trendData.push(null);
+          thresholdData.push(upperThreshold);
+          checkedReadingData.push(candidatePower);
+          pointColors.push("#2f6ddf");
+        }
+
+        anomalyChart.data.labels = chartLabels;
+        anomalyChart.data.datasets[0].data = trendData;
+        anomalyChart.data.datasets[0].pointBackgroundColor = pointColors;
+        anomalyChart.data.datasets[0].pointBorderColor = pointColors;
+        anomalyChart.data.datasets[1].data = thresholdData;
+        anomalyChart.data.datasets[2].data = checkedReadingData;
+        anomalyChart.options.scales.y.suggestedMax = Math.max(upperThreshold, ...values, Number.isFinite(candidatePower) ? candidatePower : 0) * 1.15;
+        anomalyChart.update();
+
+        const anomalyCount = anomalyFlags.filter(Boolean).length;
+        summary.textContent = `${values.length} readings | mean ${mean.toFixed(1)} W | std ${std.toFixed(1)} W | threshold ${upperThreshold.toFixed(1)} W | anomalies ${anomalyCount}`;
+      } catch (error) {
+        document.getElementById("anomalySummary").textContent = "Could not load anomaly baseline.";
+      }
+    }
+
+    function formatTime(iso) {
+      return iso ? new Date(iso).toLocaleTimeString() : "--";
+    }
+
+    async function loadHistory() {
+      const tbody = document.getElementById("historyBody");
+      try {
+        const response = await fetch("/history?limit=15");
+        const rows = await response.json();
+
+        if (!rows.length) {
+          tbody.innerHTML = '<tr><td colspan="4">No data available.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = [...rows].reverse().map((row) => `
+          <tr class="${row.anomaly === "True" ? "anomaly" : ""}">
+            <td>${formatTime(row.timestamp)}</td>
+            <td class="numeric"><strong>${parseFloat(row.power || 0).toFixed(1)}</strong> W</td>
+            <td class="numeric">${parseFloat(row.voltage || 0).toFixed(1)} V</td>
+            <td>${
+              row.anomaly === "True"
+                ? '<span class="badge warn"><span class="material-icons" style="font-size:14px;">warning</span>Anomaly</span>'
+                : '<span class="badge ok"><span class="material-icons" style="font-size:14px;">check</span>OK</span>'
+            }</td>
+          </tr>
+        `).join("");
+      } catch (error) {
+        tbody.innerHTML = '<tr><td colspan="4">Failed to load history.</td></tr>';
+      }
+    }
+
+    function updateRelayLabel(on) {
+      const status = document.getElementById("relayStatus");
+      status.textContent = on ? "ON" : "OFF";
+      status.style.color = on ? "var(--success)" : "#55657b";
+    }
+
+    async function toggleRelay() {
+      const on = document.getElementById("relaySwitch").checked;
+      try {
+        await fetch("/relay", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ on })
+        });
+        updateRelayLabel(on);
+      } catch (error) {
+        const status = document.getElementById("relayStatus");
+        status.textContent = "Unavailable";
+        status.style.color = "var(--danger)";
+      }
+    }
+
+    async function loadRelayState() {
+      try {
+        const response = await fetch("/relay");
+        const data = await response.json();
+        document.getElementById("relaySwitch").checked = !!data.on;
+        updateRelayLabel(!!data.on);
+      } catch (error) {
+        const status = document.getElementById("relayStatus");
+        status.textContent = "Unavailable";
+        status.style.color = "var(--danger)";
+      }
+    }
+
+    async function simulateReadings() {
+      const status = document.getElementById("simStatus");
+      const basePower = { fridge: 35, ac_1: 800, ac_2: 600, boiler: 1500, washing_machine: 400, dishwasher: 800 };
+      const base = basePower[selectedDevice] || 100;
+      const readings = Array.from({ length: 10 }, () => Math.max(0, base + (Math.random() - 0.5) * base * 0.4));
+
+      try {
+        const response = await fetch("/ml/simulate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ appliance: selectedDevice, readings })
+        });
+        const data = await response.json();
+        status.textContent = `Added ${data.readings_added} test readings`;
+        status.style.color = "var(--success)";
+        loadPredictions();
+        loadAnomalyChart();
+        setTimeout(() => {
+          status.textContent = "";
+        }, 3000);
+      } catch (error) {
+        status.textContent = "Failed to add test data";
+        status.style.color = "var(--danger)";
+      }
+    }
+
+    function renderModelList(items) {
+      if (!items || !items.length) {
+        return "<li>Not available</li>";
+      }
+      return items.map((item) => `<li>${item}</li>`).join("");
+    }
+
+    async function showModelInfo() {
+      const panel = document.getElementById("modelInfoPanel");
+      const btnLabel = document.querySelector("#modelInfoBtn .mdc-button__label");
+
+      if (panel.classList.contains("open")) {
+        panel.classList.remove("open");
+        panel.innerHTML = "";
+        btnLabel.textContent = "Show Model Info";
+        return;
+      }
+
+      panel.classList.add("open");
+      panel.innerHTML = '<div class="loading"><span class="spinner"></span>Loading model details...</div>';
+      btnLabel.textContent = "Hide Model Info";
+
+      try {
+        const response = await fetch("/ml/info");
+        const data = await response.json();
+        panel.innerHTML = `
+          <div class="model-grid">
+            <article class="model-card">
+              <h4>Power predictors</h4>
+              <ul>${renderModelList(data.power_predictors)}</ul>
+            </article>
+            <article class="model-card">
+              <h4>Anomaly detectors</h4>
+              <ul>${renderModelList(data.anomaly_detectors)}</ul>
+            </article>
+            <article class="model-card">
+              <h4>Classifiers</h4>
+              <ul>${renderModelList(data.classifiers)}</ul>
+            </article>
+          </div>
+        `;
+      } catch (error) {
+        panel.innerHTML = '<div class="result error"><span class="material-icons">error</span><div><strong>Could not load model info</strong><small>Try again after backend reconnect.</small></div></div>';
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      initMdc();
+      initCharts();
+      loadRelayState();
+      loadPredictions();
+      loadHistory();
+      loadAnomalyChart();
+
+      setTimeout(() => {
+        toggleStream();
+      }, 450);
+
+      setInterval(() => {
+        loadRelayState();
+      }, 3000);
+
+      setInterval(() => {
+        loadHistory();
+      }, 5000);
+    });
+  </script>
 </body>
 </html>
