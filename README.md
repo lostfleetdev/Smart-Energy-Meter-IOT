@@ -59,6 +59,17 @@ Household energy bills provide no granular breakdown per appliance. Existing sma
 | Energy (kWh)     | ∫ Power × dt (numerical integration)             |
 
 ---
+## Project Photos
+<table>
+  <tr>
+    <td align="center">
+      <img src="Screenshot 2026-05-17 233258.png" width="300"/><br/>
+      <sub><b>Upload — Light Mode</b></sub>
+    </td>
+  </tr>
+</table>
+
+```
 
 ## Project Structure
 
